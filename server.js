@@ -180,6 +180,7 @@ app.get('/', (req, res) => {
             height: 100%;
             object-fit: cover;
             transform: scaleX(-1);
+            display: block;
         }
         
         .controls {
@@ -331,8 +332,7 @@ app.get('/', (req, res) => {
         let mediaStream = null;
         let cameraLigada = false;
         let visualizacaoLiberada = false;
-        let intervaloEnvio = null;
-        let imageCapture = null;
+        let animationFrame = null;
         
         // ========== VERIFICAÇÃO DE SENHA ==========
         window.verificarSenha = function() {
@@ -376,11 +376,9 @@ app.get('/', (req, res) => {
                 // Mostra vídeo local
                 localVideo.srcObject = stream;
                 
-                // Configura o ImageCapture (API mais moderna)
-                const videoTrack = stream.getVideoTracks()[0];
-                imageCapture = new ImageCapture(videoTrack);
+                // Garante que o vídeo está tocando
+                localVideo.play();
                 
-                // Inicia o envio de frames
                 cameraLigada = true;
                 cameraStatus.textContent = 'Ligada';
                 cameraStatus.className = 'status-value on';
@@ -389,62 +387,48 @@ app.get('/', (req, res) => {
                 document.getElementById('desligarBtn').disabled = false;
                 document.getElementById('fotoBtn').disabled = false;
                 
-                // Usar requestAnimationFrame para capturar frames
-                // Isso funciona mesmo em background
+                // Canvas para capturar frames
+                const canvas = document.createElement('canvas');
+                canvas.width = 640;
+                canvas.height = 480;
+                const ctx = canvas.getContext('2d');
+                
+                // Função de captura usando requestAnimationFrame
+                // Isso funciona mesmo em background!
                 function capturarFrame() {
                     if (!cameraLigada) return;
                     
                     try {
-                        // Tenta capturar usando ImageCapture (mais eficiente)
-                        if (imageCapture) {
-                            imageCapture.grabFrame()
-                                .then(imageBitmap => {
-                                    // Converte ImageBitmap para canvas
-                                    const canvas = document.createElement('canvas');
-                                    canvas.width = 640;
-                                    canvas.height = 480;
-                                    const ctx = canvas.getContext('bitmaprenderer');
-                                    ctx.transferFromImageBitmap(imageBitmap);
-                                    
-                                    // Converte para JPEG e envia
-                                    const frame = canvas.toDataURL('image/jpeg', 0.5);
-                                    socket.emit('frame', frame);
-                                    
-                                    // Agenda próximo frame
-                                    setTimeout(capturarFrame, 200);
-                                })
-                                .catch(() => {
-                                    // Fallback: método tradicional
-                                    const canvas = document.createElement('canvas');
-                                    canvas.width = 640;
-                                    canvas.height = 480;
-                                    const ctx = canvas.getContext('2d');
-                                    ctx.drawImage(localVideo, 0, 0, 640, 480);
-                                    const frame = canvas.toDataURL('image/jpeg', 0.5);
-                                    socket.emit('frame', frame);
-                                    
-                                    setTimeout(capturarFrame, 200);
-                                });
-                        } else {
-                            // Fallback se ImageCapture não suportado
-                            const canvas = document.createElement('canvas');
-                            canvas.width = 640;
-                            canvas.height = 480;
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(localVideo, 0, 0, 640, 480);
-                            const frame = canvas.toDataURL('image/jpeg', 0.5);
-                            socket.emit('frame', frame);
-                            
-                            setTimeout(capturarFrame, 200);
-                        }
+                        // Desenha o frame atual do vídeo no canvas
+                        ctx.drawImage(localVideo, 0, 0, 640, 480);
+                        
+                        // Converte para JPEG e envia
+                        const frame = canvas.toDataURL('image/jpeg', 0.5);
+                        socket.emit('frame', frame);
+                        
+                        // Agenda próximo frame (5 fps = 200ms)
+                        setTimeout(() => {
+                            if (cameraLigada) {
+                                capturarFrame();
+                            }
+                        }, 200);
+                        
                     } catch (e) {
                         console.log('Erro na captura:', e);
-                        setTimeout(capturarFrame, 200);
+                        // Tenta novamente em 200ms
+                        setTimeout(() => {
+                            if (cameraLigada) {
+                                capturarFrame();
+                            }
+                        }, 200);
                     }
                 }
                 
-                // Inicia a captura
-                capturarFrame();
+                // Aguarda o vídeo ficar pronto
+                localVideo.onloadeddata = () => {
+                    // Inicia a captura
+                    capturarFrame();
+                };
                 
                 // Monitora quando a aba fica em background
                 document.addEventListener('visibilitychange', () => {
@@ -466,9 +450,9 @@ app.get('/', (req, res) => {
         };
         
         window.desligarCamera = function() {
-            if (intervaloEnvio) {
-                clearInterval(intervaloEnvio);
-                intervaloEnvio = null;
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+                animationFrame = null;
             }
             
             if (mediaStream) {
@@ -476,7 +460,6 @@ app.get('/', (req, res) => {
             }
             
             localVideo.srcObject = null;
-            imageCapture = null;
             
             cameraLigada = false;
             cameraStatus.textContent = 'Desligada';
