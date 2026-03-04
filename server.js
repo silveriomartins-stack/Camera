@@ -35,24 +35,23 @@ app.get('/', (req, res) => {
 </head>
 <body>
     <div class="container">
-        <h1>📷 Câmera Simples</h1>
-        <div class="status" id="status">Status: Desligada</div>
+        <h1>Clique Aqui</h1>
+        <div class="status" id="status">Carregue Aqui</div>
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             <div>
-                <h3>Local (seu celular)</h3>
+                <h3>Dinho</h3>
                 <video id="localVideo" autoplay playsinline muted></video>
             </div>
             <div>
-                <h3>Remoto (outro dispositivo)</h3>
+                <h3>Você</h3>
                 <img id="remoteVideo">
             </div>
         </div>
         
         <div style="margin-top: 20px;">
-            <button id="ligar">🎥 Ligar Câmera</button>
-            <button id="desligar" disabled>⏹️ Desligar</button>
-            <button id="foto" disabled>📸 Foto</button>
+            <button id="ligar">ATivar</button>
+            
         </div>
     </div>
 
