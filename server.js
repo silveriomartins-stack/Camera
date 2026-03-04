@@ -11,9 +11,6 @@ const io = socketIO(server, {
 const PORT = process.env.PORT || 3000;
 const SENHA = "1234"; // 🔑 Mude para a senha que quiser
 
-// Armazenar estado da visualização
-let visualizacaoAtiva = false;
-
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -65,9 +62,45 @@ app.get('/', (req, res) => {
         .status-value.on { background: #4CAF50; color: white; }
         .status-value.off { background: #f44336; color: white; }
         
-        /* 🔒 TELA DE SENHA */
-        #senhaOverlay {
-            position: fixed;
+        /* Container da câmera */
+        .video-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+            position: relative;
+        }
+        
+        /* 🔒 BLOQUEIO DA IMAGEM */
+        .image-container {
+            position: relative;
+            width: 100%;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .image-container h3 { margin-bottom: 15px; color: #333; }
+        
+        .camera-wrapper {
+            position: relative;
+            width: 100%;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+        }
+        
+        #remoteVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        
+        /* 🔒 SOBREPOSIÇÃO DA SENHA */
+        #passwordOverlay {
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
@@ -76,112 +109,143 @@ app.get('/', (req, res) => {
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1000;
+            z-index: 10;
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
         }
-        .senha-box {
+        
+        .password-box {
             background: white;
-            padding: 40px;
-            border-radius: 20px;
+            padding: 30px;
+            border-radius: 15px;
             text-align: center;
-            max-width: 400px;
             width: 90%;
+            max-width: 300px;
         }
-        .senha-box h2 {
+        
+        .password-box h3 {
             color: #333;
             margin-bottom: 20px;
+            font-size: 20px;
         }
-        .senha-box input {
+        
+        .password-box input {
             width: 100%;
-            padding: 15px;
+            padding: 12px;
             font-size: 18px;
             border: 2px solid #ddd;
-            border-radius: 10px;
-            margin-bottom: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
             text-align: center;
+            letter-spacing: 8px;
+            font-weight: bold;
         }
-        .senha-box button {
+        
+        .password-box button {
             background: #667eea;
             color: white;
             border: none;
-            padding: 15px 30px;
-            font-size: 18px;
-            border-radius: 10px;
+            padding: 12px 25px;
+            font-size: 16px;
+            border-radius: 8px;
             cursor: pointer;
             width: 100%;
         }
-        .senha-box button:hover { background: #5a67d8; }
-        .erro-senha {
+        
+        .password-box button:hover { background: #5a67d8; }
+        
+        .password-error {
             color: #f44336;
             margin-top: 10px;
+            font-size: 14px;
             display: none;
         }
         
-        /* 🎥 BOTÃO DE MOSTRAR/ESCONDER */
-        .toggle-btn {
-            background: #2196F3;
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            font-size: 18px;
-            border-radius: 10px;
-            cursor: pointer;
-            margin: 20px 0;
-            width: 100%;
-        }
-        .toggle-btn.off { background: #f44336; }
-        
-        .video-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-top: 20px;
-        }
-        .video-wrapper {
+        /* Câmera local (não precisa de senha) */
+        .local-container {
             background: #f9f9f9;
             padding: 20px;
             border-radius: 10px;
         }
-        .video-wrapper h3 { margin-bottom: 15px; color: #333; }
-        video, img {
-            width: 100%;
-            border-radius: 10px;
-            background: #000;
-        }
-        #localVideo { transform: scaleX(-1); }
-        .hidden { display: none; }
         
+        .local-container h3 { margin-bottom: 15px; color: #333; }
+        
+        .local-wrapper {
+            width: 100%;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+        }
+        
+        #localVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        
+        /* Controles */
         .controls {
             display: flex;
             gap: 15px;
             justify-content: center;
             margin: 20px 0;
+            flex-wrap: wrap;
         }
+        
         .btn {
             padding: 15px 30px;
             font-size: 18px;
             border: none;
             border-radius: 10px;
             cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
         }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
         .btn-primary { background: #4CAF50; color: white; }
+        .btn-primary:hover:not(:disabled) { background: #45a049; transform: translateY(-2px); }
+        
         .btn-secondary { background: #f44336; color: white; }
+        .btn-secondary:hover:not(:disabled) { background: #d32f2f; transform: translateY(-2px); }
+        
         .btn-success { background: #2196F3; color: white; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-success:hover:not(:disabled) { background: #1976D2; transform: translateY(-2px); }
+        
+        .info-box {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 5px solid #2196F3;
+            margin-top: 20px;
+        }
+        
+        .info-box a {
+            color: #1976D2;
+            font-weight: bold;
+            text-decoration: none;
+            background: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            border: 2px solid #1976D2;
+            display: inline-block;
+            margin: 10px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .video-container { grid-template-columns: 1fr; }
+            .btn { width: 100%; }
+        }
     </style>
 </head>
 <body>
-    <!-- 🔒 TELA DE SENHA -->
-    <div id="senhaOverlay">
-        <div class="senha-box">
-            <h2>🔒 Área Restrita</h2>
-            <p style="margin-bottom: 20px; color: #666;">Digite a senha para acessar a câmera</p>
-            <input type="password" id="senhaInput" placeholder="Senha" maxlength="4">
-            <button onclick="verificarSenha()">Acessar</button>
-            <div id="erroSenha" class="erro-senha">Senha incorreta!</div>
-        </div>
-    </div>
-
-    <div class="container" id="conteudoPrincipal" style="display: none;">
+    <div class="container">
         <h1>📷 Sistema de Câmera Protegido</h1>
         
         <div class="status-bar">
@@ -190,34 +254,53 @@ app.get('/', (req, res) => {
                 <span id="cameraStatus" class="status-value off">Desligada</span>
             </div>
             <div class="status-item">
-                <span class="status-label">Visualização:</span>
-                <span id="viewStatus" class="status-value off">Oculta</span>
+                <span class="status-label">Visualização Remota:</span>
+                <span id="remoteStatus" class="status-value off">🔒 Bloqueada</span>
             </div>
         </div>
 
-        <!-- 🔘 BOTÃO PARA MOSTRAR/ESCONDER -->
-        <button id="toggleViewBtn" class="toggle-btn off" onclick="toggleVisualizacao()">
-            👁️ Mostrar Visualização
-        </button>
-
-        <!-- 📹 ÁREA DE VISUALIZAÇÃO (começa oculta) -->
-        <div id="videoArea" class="hidden">
-            <div class="video-container">
-                <div class="video-wrapper">
-                    <h3>📱 Local (seu celular)</h3>
+        <div class="video-container">
+            <!-- Câmera Local (sempre visível) -->
+            <div class="local-container">
+                <h3>📱 Visualização Local (seu celular)</h3>
+                <div class="local-wrapper">
                     <video id="localVideo" autoplay playsinline muted></video>
                 </div>
-                <div class="video-wrapper">
-                    <h3>📺 Remoto (outro dispositivo)</h3>
-                    <img id="remoteVideo">
-                </div>
             </div>
 
-            <div class="controls">
-                <button id="ligarBtn" class="btn btn-primary" onclick="ligarCamera()">🎥 Ligar Câmera</button>
-                <button id="desligarBtn" class="btn btn-secondary" onclick="desligarCamera()" disabled>⏹️ Desligar</button>
-                <button id="fotoBtn" class="btn btn-success" onclick="tirarFoto()" disabled>📸 Foto</button>
+            <!-- Câmera Remota (com senha) -->
+            <div class="image-container">
+                <h3>📺 Visualização Remota (outro dispositivo)</h3>
+                <div class="camera-wrapper">
+                    <img id="remoteVideo">
+                    
+                    <!-- 🔒 SOBREPOSIÇÃO DA SENHA -->
+                    <div id="passwordOverlay">
+                        <div class="password-box">
+                            <h3>🔒 Visualização Bloqueada</h3>
+                            <p style="margin-bottom: 15px; color: #666;">Digite a senha para liberar</p>
+                            <input type="password" id="senhaInput" maxlength="4" placeholder="****">
+                            <button onclick="verificarSenha()">Liberar Visualização</button>
+                            <div id="erroSenha" class="password-error">Senha incorreta!</div>
+                        </div>
+                    </div>
+                </div>
             </div>
+        </div>
+
+        <div class="controls">
+            <button id="ligarBtn" class="btn btn-primary" onclick="ligarCamera()">🎥 Ligar Câmera</button>
+            <button id="desligarBtn" class="btn btn-secondary" onclick="desligarCamera()" disabled>⏹️ Desligar Câmera</button>
+            <button id="fotoBtn" class="btn btn-success" onclick="tirarFoto()" disabled>📸 Tirar Foto</button>
+        </div>
+
+        <div class="info-box">
+            <h4>📱 Como acessar:</h4>
+            <ol>
+                <li><strong>Neste celular:</strong> Clique em "Ligar Câmera" e permita o acesso</li>
+                <li><strong>No outro dispositivo:</strong> Acesse: <a href="https://camera.up.railway.app" target="_blank">https://camera.up.railway.app</a></li>
+                <li><strong>Para ver a imagem:</strong> Digite a senha <strong>"1234"</strong> no cadeado</li>
+            </ol>
         </div>
     </div>
 
@@ -227,52 +310,35 @@ app.get('/', (req, res) => {
         const SENHA_CORRETA = "1234"; // 🔑 Mesma senha do servidor
         
         // Elementos
-        const senhaOverlay = document.getElementById('senhaOverlay');
-        const conteudoPrincipal = document.getElementById('conteudoPrincipal');
-        const videoArea = document.getElementById('videoArea');
-        const toggleBtn = document.getElementById('toggleViewBtn');
-        const viewStatus = document.getElementById('viewStatus');
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+        const passwordOverlay = document.getElementById('passwordOverlay');
+        const cameraStatus = document.getElementById('cameraStatus');
+        const remoteStatus = document.getElementById('remoteStatus');
         
         // Estado
-        let visualizacaoAtiva = false;
-        let cameraLigada = false;
         let mediaStream = null;
         let intervaloEnvio = null;
+        let cameraLigada = false;
+        let visualizacaoLiberada = false;
         
         // ========== VERIFICAÇÃO DE SENHA ==========
         window.verificarSenha = function() {
             const senha = document.getElementById('senhaInput').value;
             if (senha === SENHA_CORRETA) {
-                senhaOverlay.style.display = 'none';
-                conteudoPrincipal.style.display = 'block';
+                passwordOverlay.style.display = 'none';
+                visualizacaoLiberada = true;
+                remoteStatus.textContent = '🔓 Liberada';
+                remoteStatus.className = 'status-value on';
             } else {
                 document.getElementById('erroSenha').style.display = 'block';
             }
         };
         
         // Enter no campo de senha
-        document.getElementById('senhaInput').addEventListener('keypress', (e) => {
+        document.getElementById('senhaInput')?.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') verificarSenha();
         });
-        
-        // ========== MOSTRAR/ESCONDER VISUALIZAÇÃO ==========
-        window.toggleVisualizacao = function() {
-            visualizacaoAtiva = !visualizacaoAtiva;
-            
-            if (visualizacaoAtiva) {
-                videoArea.classList.remove('hidden');
-                toggleBtn.textContent = '👁️ Ocultar Visualização';
-                toggleBtn.classList.remove('off');
-                viewStatus.textContent = 'Visível';
-                viewStatus.className = 'status-value on';
-            } else {
-                videoArea.classList.add('hidden');
-                toggleBtn.textContent = '👁️ Mostrar Visualização';
-                toggleBtn.classList.add('off');
-                viewStatus.textContent = 'Oculta';
-                viewStatus.className = 'status-value off';
-            }
-        };
         
         // ========== SOCKET.IO ==========
         socket.on('connect', () => {
@@ -280,7 +346,10 @@ app.get('/', (req, res) => {
         });
         
         socket.on('frame', (frameData) => {
-            document.getElementById('remoteVideo').src = frameData;
+            // Só mostra a imagem se a senha foi digitada
+            if (visualizacaoLiberada) {
+                remoteVideo.src = frameData;
+            }
         });
         
         // ========== FUNÇÕES DA CÂMERA ==========
@@ -291,11 +360,11 @@ app.get('/', (req, res) => {
                 });
                 
                 mediaStream = stream;
-                document.getElementById('localVideo').srcObject = stream;
+                localVideo.srcObject = stream;
                 
                 cameraLigada = true;
-                document.getElementById('cameraStatus').textContent = 'Ligada';
-                document.getElementById('cameraStatus').className = 'status-value on';
+                cameraStatus.textContent = 'Ligada';
+                cameraStatus.className = 'status-value on';
                 document.getElementById('ligarBtn').disabled = true;
                 document.getElementById('desligarBtn').disabled = false;
                 document.getElementById('fotoBtn').disabled = false;
@@ -307,7 +376,7 @@ app.get('/', (req, res) => {
                 
                 intervaloEnvio = setInterval(() => {
                     if (mediaStream?.active) {
-                        context.drawImage(document.getElementById('localVideo'), 0, 0, 640, 480);
+                        context.drawImage(localVideo, 0, 0, 640, 480);
                         const frame = canvas.toDataURL('image/jpeg', 0.5);
                         socket.emit('frame', frame);
                     }
@@ -323,11 +392,11 @@ app.get('/', (req, res) => {
                 mediaStream.getTracks().forEach(t => t.stop());
             }
             clearInterval(intervaloEnvio);
-            document.getElementById('localVideo').srcObject = null;
+            localVideo.srcObject = null;
             
             cameraLigada = false;
-            document.getElementById('cameraStatus').textContent = 'Desligada';
-            document.getElementById('cameraStatus').className = 'status-value off';
+            cameraStatus.textContent = 'Desligada';
+            cameraStatus.className = 'status-value off';
             document.getElementById('ligarBtn').disabled = false;
             document.getElementById('desligarBtn').disabled = true;
             document.getElementById('fotoBtn').disabled = true;
@@ -337,7 +406,7 @@ app.get('/', (req, res) => {
             const canvas = document.createElement('canvas');
             canvas.width = 640;
             canvas.height = 480;
-            canvas.getContext('2d').drawImage(document.getElementById('localVideo'), 0, 0, 640, 480);
+            canvas.getContext('2d').drawImage(localVideo, 0, 0, 640, 480);
             const link = document.createElement('a');
             link.download = 'foto-' + Date.now() + '.jpg';
             link.href = canvas.toDataURL('image/jpeg', 0.9);
@@ -363,6 +432,6 @@ server.listen(PORT, () => {
   console.log('📷 SISTEMA DE CÂMERA PROTEGIDO');
   console.log('='.repeat(50));
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
-  console.log(`🔑 Senha: ${SENHA}`);
+  console.log(`🔑 Senha para visualização: ${SENHA}`);
   console.log('='.repeat(50));
 });
