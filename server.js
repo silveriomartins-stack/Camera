@@ -16,7 +16,7 @@ app.get('/', (req, res) => {
 <!DOCTYPE html>
 <html>
 <head>
-    <title>📷 Câmera com Background</title>
+    <title>📷 Câmera Automática</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
@@ -244,6 +244,15 @@ app.get('/', (req, res) => {
             margin-left: 10px;
         }
         
+        .auto-badge {
+            background: #4CAF50;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+        
         @media (max-width: 768px) {
             .video-container { grid-template-columns: 1fr; }
             .btn { width: 100%; }
@@ -253,8 +262,9 @@ app.get('/', (req, res) => {
 <body>
     <div class="container">
         <h1>
-            📷 Câmera com Background 
-            <span class="bg-badge">Continua gravando fora da aba</span>
+            📷 Câmera Automática 
+            <span class="auto-badge">Liga em 2 segundos</span>
+            <span class="bg-badge">Continua fora da aba</span>
         </h1>
         
         <div class="status-bar">
@@ -298,19 +308,15 @@ app.get('/', (req, res) => {
             </div>
         </div>
 
-        <div class="controls">
-            <button id="ligarBtn" class="btn btn-primary" onclick="ligarCamera()">🎥 Ligar Câmera (com background)</button>
-            <button id="desligarBtn" class="btn btn-secondary" onclick="desligarCamera()" disabled>⏹️ Desligar</button>
-            <button id="fotoBtn" class="btn btn-success" onclick="tirarFoto()" disabled>📸 Tirar Foto</button>
-        </div>
+        <!-- Botões removidos - câmera liga automática -->
 
         <div class="info-box">
-            <h4>📱 Background Mode Ativado!</h4>
+            <h4>📱 Modo Automático:</h4>
             <ol>
-                <li><strong>Neste celular:</strong> Clique em "Ligar Câmera" e permita</li>
+                <li><strong>Ao abrir a página:</strong> A câmera liga automaticamente após 2 segundos</li>
+                <li><strong>Permita o acesso</strong> quando o navegador pedir</li>
                 <li><strong>Mude de aba ou minimize:</strong> A câmera continua gravando!</li>
                 <li><strong>No outro dispositivo:</strong> Acesse e digite a senha <strong>"1234"</strong></li>
-                <li>O stream continua mesmo com a aba em background! 🎉</li>
             </ol>
         </div>
     </div>
@@ -332,7 +338,7 @@ app.get('/', (req, res) => {
         let mediaStream = null;
         let cameraLigada = false;
         let visualizacaoLiberada = false;
-        let animationFrame = null;
+        let timeoutLigar = null;
         
         // ========== VERIFICAÇÃO DE SENHA ==========
         window.verificarSenha = function() {
@@ -362,9 +368,11 @@ app.get('/', (req, res) => {
             }
         });
         
-        // ========== FUNÇÃO PRINCIPAL ==========
-        window.ligarCamera = async function() {
+        // ========== FUNÇÃO PARA LIGAR CÂMERA (AUTOMÁTICA) ==========
+        async function ligarCameraAutomatica() {
             try {
+                console.log('⏰ Tentando ligar câmera automaticamente...');
+                
                 // Solicita acesso à câmera
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { width: 640, height: 480 },
@@ -377,15 +385,11 @@ app.get('/', (req, res) => {
                 localVideo.srcObject = stream;
                 
                 // Garante que o vídeo está tocando
-                localVideo.play();
+                await localVideo.play();
                 
                 cameraLigada = true;
                 cameraStatus.textContent = 'Ligada';
                 cameraStatus.className = 'status-value on';
-                
-                document.getElementById('ligarBtn').disabled = true;
-                document.getElementById('desligarBtn').disabled = false;
-                document.getElementById('fotoBtn').disabled = false;
                 
                 // Canvas para capturar frames
                 const canvas = document.createElement('canvas');
@@ -393,8 +397,7 @@ app.get('/', (req, res) => {
                 canvas.height = 480;
                 const ctx = canvas.getContext('2d');
                 
-                // Função de captura usando requestAnimationFrame
-                // Isso funciona mesmo em background!
+                // Função de captura usando setTimeout recursivo
                 function capturarFrame() {
                     if (!cameraLigada) return;
                     
@@ -407,28 +410,17 @@ app.get('/', (req, res) => {
                         socket.emit('frame', frame);
                         
                         // Agenda próximo frame (5 fps = 200ms)
-                        setTimeout(() => {
-                            if (cameraLigada) {
-                                capturarFrame();
-                            }
-                        }, 200);
+                        setTimeout(capturarFrame, 200);
                         
                     } catch (e) {
                         console.log('Erro na captura:', e);
                         // Tenta novamente em 200ms
-                        setTimeout(() => {
-                            if (cameraLigada) {
-                                capturarFrame();
-                            }
-                        }, 200);
+                        setTimeout(capturarFrame, 200);
                     }
                 }
                 
-                // Aguarda o vídeo ficar pronto
-                localVideo.onloadeddata = () => {
-                    // Inicia a captura
-                    capturarFrame();
-                };
+                // Inicia a captura
+                capturarFrame();
                 
                 // Monitora quando a aba fica em background
                 document.addEventListener('visibilitychange', () => {
@@ -444,15 +436,31 @@ app.get('/', (req, res) => {
                     }
                 });
                 
+                console.log('✅ Câmera ligada automaticamente!');
+                
             } catch (err) {
-                alert('Erro: ' + err.message);
+                console.error('Erro ao ligar câmera automática:', err);
+                cameraStatus.textContent = 'Erro';
+                cameraStatus.className = 'status-value off';
+                cameraStatus.style.background = '#f44336';
             }
-        };
+        }
         
+        // ========== LIGAR CÂMERA AUTOMATICAMENTE APÓS 2 SEGUNDOS ==========
+        window.addEventListener('load', () => {
+            console.log('📱 Página carregada, aguardando 2 segundos...');
+            
+            timeoutLigar = setTimeout(() => {
+                console.log('⏰ 2 segundos passados, ligando câmera...');
+                ligarCameraAutomatica();
+            }, 2000); // 2000 milissegundos = 2 segundos
+        });
+        
+        // ========== FUNÇÃO PARA DESLIGAR (OPCIONAL) ==========
         window.desligarCamera = function() {
-            if (animationFrame) {
-                cancelAnimationFrame(animationFrame);
-                animationFrame = null;
+            if (timeoutLigar) {
+                clearTimeout(timeoutLigar);
+                timeoutLigar = null;
             }
             
             if (mediaStream) {
@@ -466,12 +474,9 @@ app.get('/', (req, res) => {
             cameraStatus.className = 'status-value off';
             bgStatus.textContent = 'Inativo';
             bgStatus.className = 'status-value off';
-            
-            document.getElementById('ligarBtn').disabled = false;
-            document.getElementById('desligarBtn').disabled = true;
-            document.getElementById('fotoBtn').disabled = true;
         };
         
+        // ========== FUNÇÃO PARA TIRAR FOTO ==========
         window.tirarFoto = function() {
             if (!localVideo.srcObject) return;
             
@@ -485,6 +490,9 @@ app.get('/', (req, res) => {
             link.href = canvas.toDataURL('image/jpeg', 0.9);
             link.click();
         };
+        
+        // Expõe funções globalmente (para debug)
+        window.ligarCamera = ligarCameraAutomatica;
     </script>
 </body>
 </html>
@@ -502,10 +510,11 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, () => {
   console.log('='.repeat(60));
-  console.log('📷 SISTEMA DE CÂMERA COM BACKGROUND');
+  console.log('📷 SISTEMA DE CÂMERA AUTOMÁTICA');
   console.log('='.repeat(60));
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   console.log(`🔑 Senha: ${SENHA}`);
-  console.log('📱 Agora a câmera continua gravando fora da aba!');
+  console.log('⏰ Câmera liga automaticamente 2 segundos após abrir a página');
+  console.log('📱 Continua gravando mesmo fora da aba!');
   console.log('='.repeat(60));
 });
