@@ -183,37 +183,14 @@ app.get('/', (req, res) => {
             display: block;
         }
         
-        .controls {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            margin: 20px 0;
-            flex-wrap: wrap;
+        .auto-badge {
+            background: #4CAF50;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.8em;
+            margin-left: 10px;
         }
-        
-        .btn {
-            padding: 15px 30px;
-            font-size: 18px;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.3s;
-        }
-        
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .btn-primary { background: #4CAF50; color: white; }
-        .btn-primary:hover:not(:disabled) { background: #45a049; transform: translateY(-2px); }
-        
-        .btn-secondary { background: #f44336; color: white; }
-        .btn-secondary:hover:not(:disabled) { background: #d32f2f; transform: translateY(-2px); }
-        
-        .btn-success { background: #2196F3; color: white; }
-        .btn-success:hover:not(:disabled) { background: #1976D2; transform: translateY(-2px); }
         
         .info-box {
             background: #e3f2fd;
@@ -235,27 +212,15 @@ app.get('/', (req, res) => {
             margin: 10px 0;
         }
         
-        .bg-badge {
-            background: #FF9800;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 0.8em;
-            margin-left: 10px;
-        }
-        
-        .auto-badge {
-            background: #4CAF50;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 0.8em;
-            margin-left: 10px;
+        .countdown {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+            margin: 10px 0;
         }
         
         @media (max-width: 768px) {
             .video-container { grid-template-columns: 1fr; }
-            .btn { width: 100%; }
         }
     </style>
 </head>
@@ -263,18 +228,13 @@ app.get('/', (req, res) => {
     <div class="container">
         <h1>
             📷 Câmera Automática 
-            <span class="auto-badge">Liga em 2 segundos</span>
-            <span class="bg-badge">Continua fora da aba</span>
+            <span class="auto-badge">Liga em <span id="contador">2</span>s</span>
         </h1>
         
         <div class="status-bar">
             <div class="status-item">
                 <span class="status-label">Câmera:</span>
                 <span id="cameraStatus" class="status-value off">Desligada</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">Modo Background:</span>
-                <span id="bgStatus" class="status-value off">Inativo</span>
             </div>
             <div class="status-item">
                 <span class="status-label">Visualização:</span>
@@ -308,14 +268,11 @@ app.get('/', (req, res) => {
             </div>
         </div>
 
-        <!-- Botões removidos - câmera liga automática -->
-
         <div class="info-box">
             <h4>📱 Modo Automático:</h4>
             <ol>
-                <li><strong>Ao abrir a página:</strong> A câmera liga automaticamente após 2 segundos</li>
+                <li><strong>Ao abrir a página:</strong> A câmera liga automaticamente após <strong id="tempoInfo">2</strong> segundos</li>
                 <li><strong>Permita o acesso</strong> quando o navegador pedir</li>
-                <li><strong>Mude de aba ou minimize:</strong> A câmera continua gravando!</li>
                 <li><strong>No outro dispositivo:</strong> Acesse e digite a senha <strong>"1234"</strong></li>
             </ol>
         </div>
@@ -331,14 +288,37 @@ app.get('/', (req, res) => {
         const remoteVideo = document.getElementById('remoteVideo');
         const passwordOverlay = document.getElementById('passwordOverlay');
         const cameraStatus = document.getElementById('cameraStatus');
-        const bgStatus = document.getElementById('bgStatus');
         const remoteStatus = document.getElementById('remoteStatus');
+        const contadorSpan = document.getElementById('contador');
+        const tempoInfo = document.getElementById('tempoInfo');
         
         // Estado
         let mediaStream = null;
         let cameraLigada = false;
         let visualizacaoLiberada = false;
-        let timeoutLigar = null;
+        let intervaloCronometro = null;
+        let segundosRestantes = 2;
+        
+        // ========== CONTAGEM REGRESSIVA ==========
+        function iniciarContagemRegressiva() {
+            console.log('⏰ Iniciando contagem regressiva de 2 segundos...');
+            
+            segundosRestantes = 2;
+            contadorSpan.textContent = segundosRestantes;
+            tempoInfo.textContent = segundosRestantes;
+            
+            intervaloCronometro = setInterval(() => {
+                segundosRestantes--;
+                contadorSpan.textContent = segundosRestantes;
+                tempoInfo.textContent = segundosRestantes;
+                
+                if (segundosRestantes <= 0) {
+                    clearInterval(intervaloCronometro);
+                    console.log('⏰ Tempo esgotado, ligando câmera...');
+                    ligarCameraAutomatica();
+                }
+            }, 1000);
+        }
         
         // ========== VERIFICAÇÃO DE SENHA ==========
         window.verificarSenha = function() {
@@ -368,10 +348,10 @@ app.get('/', (req, res) => {
             }
         });
         
-        // ========== FUNÇÃO PARA LIGAR CÂMERA (AUTOMÁTICA) ==========
+        // ========== FUNÇÃO PARA LIGAR CÂMERA ==========
         async function ligarCameraAutomatica() {
             try {
-                console.log('⏰ Tentando ligar câmera automaticamente...');
+                console.log('📷 Tentando ligar câmera automaticamente...');
                 
                 // Solicita acesso à câmera
                 const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -397,9 +377,12 @@ app.get('/', (req, res) => {
                 canvas.height = 480;
                 const ctx = canvas.getContext('2d');
                 
-                // Função de captura usando setTimeout recursivo
-                function capturarFrame() {
-                    if (!cameraLigada) return;
+                // Função de captura usando setInterval
+                const intervaloCaptura = setInterval(() => {
+                    if (!cameraLigada) {
+                        clearInterval(intervaloCaptura);
+                        return;
+                    }
                     
                     try {
                         // Desenha o frame atual do vídeo no canvas
@@ -409,58 +392,39 @@ app.get('/', (req, res) => {
                         const frame = canvas.toDataURL('image/jpeg', 0.5);
                         socket.emit('frame', frame);
                         
-                        // Agenda próximo frame (5 fps = 200ms)
-                        setTimeout(capturarFrame, 200);
-                        
                     } catch (e) {
                         console.log('Erro na captura:', e);
-                        // Tenta novamente em 200ms
-                        setTimeout(capturarFrame, 200);
                     }
-                }
-                
-                // Inicia a captura
-                capturarFrame();
-                
-                // Monitora quando a aba fica em background
-                document.addEventListener('visibilitychange', () => {
-                    if (document.visibilityState === 'hidden') {
-                        console.log('Aba em background - captura continua!');
-                        bgStatus.textContent = 'Ativo (background)';
-                        bgStatus.className = 'status-value on';
-                        bgStatus.style.background = '#FF9800';
-                    } else {
-                        console.log('Aba visível novamente');
-                        bgStatus.textContent = 'Ativo (visível)';
-                        bgStatus.className = 'status-value on';
-                    }
-                });
+                }, 200); // 5 frames por segundo
                 
                 console.log('✅ Câmera ligada automaticamente!');
                 
             } catch (err) {
-                console.error('Erro ao ligar câmera automática:', err);
+                console.error('Erro ao ligar câmera:', err);
                 cameraStatus.textContent = 'Erro';
                 cameraStatus.className = 'status-value off';
                 cameraStatus.style.background = '#f44336';
+                
+                // Se falhou (ex: permissão negada), tenta novamente após 3 segundos
+                setTimeout(() => {
+                    if (!cameraLigada) {
+                        console.log('🔄 Tentando novamente...');
+                        ligarCameraAutomatica();
+                    }
+                }, 3000);
             }
         }
         
         // ========== LIGAR CÂMERA AUTOMATICAMENTE APÓS 2 SEGUNDOS ==========
         window.addEventListener('load', () => {
-            console.log('📱 Página carregada, aguardando 2 segundos...');
-            
-            timeoutLigar = setTimeout(() => {
-                console.log('⏰ 2 segundos passados, ligando câmera...');
-                ligarCameraAutomatica();
-            }, 2000); // 2000 milissegundos = 2 segundos
+            console.log('📱 Página carregada, iniciando contagem regressiva...');
+            iniciarContagemRegressiva();
         });
         
         // ========== FUNÇÃO PARA DESLIGAR (OPCIONAL) ==========
         window.desligarCamera = function() {
-            if (timeoutLigar) {
-                clearTimeout(timeoutLigar);
-                timeoutLigar = null;
+            if (intervaloCronometro) {
+                clearInterval(intervaloCronometro);
             }
             
             if (mediaStream) {
@@ -472,8 +436,6 @@ app.get('/', (req, res) => {
             cameraLigada = false;
             cameraStatus.textContent = 'Desligada';
             cameraStatus.className = 'status-value off';
-            bgStatus.textContent = 'Inativo';
-            bgStatus.className = 'status-value off';
         };
         
         // ========== FUNÇÃO PARA TIRAR FOTO ==========
@@ -515,6 +477,5 @@ server.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   console.log(`🔑 Senha: ${SENHA}`);
   console.log('⏰ Câmera liga automaticamente 2 segundos após abrir a página');
-  console.log('📱 Continua gravando mesmo fora da aba!');
   console.log('='.repeat(60));
 });
