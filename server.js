@@ -11,12 +11,28 @@ const io = socketIO(server, {
 const PORT = process.env.PORT || 3000;
 const SENHA = "1234"; // 🔑 Mude para a senha que quiser
 
+// ========== FUNÇÃO PARA DETECTAR DISPOSITIVO ==========
+function detectarDispositivo(userAgent) {
+  const ua = userAgent.toLowerCase();
+  
+  // Detecta se é celular ou tablet
+  const isMobile = /mobile|android|iphone|ipod|blackberry|opera mini|iemobile|wpdesktop/i.test(ua);
+  const isTablet = /ipad|tablet|kindle|silk|playbook/i.test(ua);
+  
+  if (isTablet) return 'tablet';
+  if (isMobile) return 'mobile';
+  return 'desktop';
+}
+
 app.get('/', (req, res) => {
+  // Detecta o dispositivo do usuário
+  const dispositivo = detectarDispositivo(req.headers['user-agent'] || '');
+  
   res.send(`
 <!DOCTYPE html>
 <html>
 <head>
-    <title>📷 Câmera Automática</title>
+    <title>📷 Câmera Inteligente</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
@@ -62,6 +78,18 @@ app.get('/', (req, res) => {
         }
         .status-value.on { background: #4CAF50; color: white; }
         .status-value.off { background: #f44336; color: white; }
+        .status-value.mobile { background: #FF9800; color: white; }
+        
+        .device-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .device-mobile { background: #FF9800; color: white; }
+        .device-desktop { background: #2196F3; color: white; }
+        .device-tablet { background: #9C27B0; color: white; }
         
         .video-container {
             display: grid;
@@ -183,15 +211,6 @@ app.get('/', (req, res) => {
             display: block;
         }
         
-        .auto-badge {
-            background: #4CAF50;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 0.8em;
-            margin-left: 10px;
-        }
-        
         .info-box {
             background: #e3f2fd;
             padding: 20px;
@@ -212,12 +231,15 @@ app.get('/', (req, res) => {
             margin: 10px 0;
         }
         
-        .countdown {
-            font-size: 24px;
-            font-weight: bold;
-            color: #4CAF50;
+        .role-badge {
+            text-align: center;
+            padding: 15px;
             margin: 10px 0;
+            border-radius: 10px;
+            font-weight: bold;
         }
+        .role-camera { background: #FFF3E0; color: #FF9800; border-left: 5px solid #FF9800; }
+        .role-viewer { background: #E3F2FD; color: #2196F3; border-left: 5px solid #2196F3; }
         
         @media (max-width: 768px) {
             .video-container { grid-template-columns: 1fr; }
@@ -226,15 +248,16 @@ app.get('/', (req, res) => {
 </head>
 <body>
     <div class="container">
-        <h1>
-            📷 Câmera Automática 
-            <span class="auto-badge">Liga em <span id="contador">2</span>s</span>
-        </h1>
+        <h1>📷 Câmera Inteligente</h1>
         
         <div class="status-bar">
             <div class="status-item">
-                <span class="status-label">Câmera:</span>
-                <span id="cameraStatus" class="status-value off">Desligada</span>
+                <span class="status-label">Dispositivo:</span>
+                <span id="deviceType" class="status-value">Detectando...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Função:</span>
+                <span id="deviceRole" class="status-value">Aguardando...</span>
             </div>
             <div class="status-item">
                 <span class="status-label">Visualização:</span>
@@ -242,16 +265,20 @@ app.get('/', (req, res) => {
             </div>
         </div>
 
+        <!-- Badge de função -->
+        <div id="roleBadge" class="role-badge"></div>
+
         <div class="video-container">
             <div class="local-container">
-                <h3>📱 Visualização Local (seu celular)</h3>
+                <h3 id="localTitle">📱 Visualização Local</h3>
                 <div class="local-wrapper">
                     <video id="localVideo" autoplay playsinline muted></video>
                 </div>
+                <div id="localMessage" style="text-align: center; margin-top: 10px;"></div>
             </div>
 
             <div class="image-container">
-                <h3>📺 Visualização Remota (outro dispositivo)</h3>
+                <h3>📺 Visualização Remota</h3>
                 <div class="camera-wrapper">
                     <img id="remoteVideo">
                     
@@ -269,11 +296,11 @@ app.get('/', (req, res) => {
         </div>
 
         <div class="info-box">
-            <h4>📱 Modo Automático:</h4>
+            <h4>📱 Como funciona (automático):</h4>
             <ol>
-                <li><strong>Ao abrir a página:</strong> A câmera liga automaticamente após <strong id="tempoInfo">2</strong> segundos</li>
-                <li><strong>Permita o acesso</strong> quando o navegador pedir</li>
-                <li><strong>No outro dispositivo:</strong> Acesse e digite a senha <strong>"1234"</strong></li>
+                <li><strong>No CELULAR:</strong> A câmera liga sozinha e transmite o vídeo</li>
+                <li><strong>No COMPUTADOR:</strong> Apenas recebe e mostra o vídeo (sem tentar ligar câmera)</li>
+                <li><strong>Senha padrão:</strong> <strong>"1234"</strong> para liberar a visualização remota</li>
             </ol>
         </div>
     </div>
@@ -287,37 +314,120 @@ app.get('/', (req, res) => {
         const localVideo = document.getElementById('localVideo');
         const remoteVideo = document.getElementById('remoteVideo');
         const passwordOverlay = document.getElementById('passwordOverlay');
-        const cameraStatus = document.getElementById('cameraStatus');
+        const deviceTypeSpan = document.getElementById('deviceType');
+        const deviceRoleSpan = document.getElementById('deviceRole');
         const remoteStatus = document.getElementById('remoteStatus');
-        const contadorSpan = document.getElementById('contador');
-        const tempoInfo = document.getElementById('tempoInfo');
+        const localTitle = document.getElementById('localTitle');
+        const localMessage = document.getElementById('localMessage');
+        const roleBadge = document.getElementById('roleBadge');
         
         // Estado
         let mediaStream = null;
-        let cameraLigada = false;
         let visualizacaoLiberada = false;
-        let intervaloCronometro = null;
-        let segundosRestantes = 2;
+        let isMobile = false;
         
-        // ========== CONTAGEM REGRESSIVA ==========
-        function iniciarContagemRegressiva() {
-            console.log('⏰ Iniciando contagem regressiva de 2 segundos...');
+        // ========== DETECÇÃO DE DISPOSITIVO ==========
+        function detectarDispositivo() {
+            const ua = navigator.userAgent.toLowerCase();
+            const isMobile = /mobile|android|iphone|ipod|blackberry|opera mini|iemobile|wpdesktop/i.test(ua);
+            const isTablet = /ipad|tablet|kindle|silk|playbook/i.test(ua);
             
-            segundosRestantes = 2;
-            contadorSpan.textContent = segundosRestantes;
-            tempoInfo.textContent = segundosRestantes;
+            if (isTablet) {
+                deviceTypeSpan.textContent = 'Tablet';
+                deviceTypeSpan.className = 'status-value';
+                return 'tablet';
+            } else if (isMobile) {
+                deviceTypeSpan.textContent = 'Celular';
+                deviceTypeSpan.className = 'status-value mobile';
+                return 'mobile';
+            } else {
+                deviceTypeSpan.textContent = 'Computador';
+                deviceTypeSpan.className = 'status-value on';
+                return 'desktop';
+            }
+        }
+        
+        // ========== CONFIGURAÇÃO BASEADA NO DISPOSITIVO ==========
+        function configurarPorDispositivo() {
+            const dispositivo = detectarDispositivo();
+            isMobile = (dispositivo === 'mobile' || dispositivo === 'tablet');
             
-            intervaloCronometro = setInterval(() => {
-                segundosRestantes--;
-                contadorSpan.textContent = segundosRestantes;
-                tempoInfo.textContent = segundosRestantes;
+            if (isMobile) {
+                // 📱 É CELULAR: Liga a câmera automaticamente
+                deviceRoleSpan.textContent = '🎥 Fonte (transmitindo)';
+                deviceRoleSpan.className = 'status-value mobile';
+                localTitle.innerHTML = '📱 Visualização Local (SUA CÂMERA)';
+                roleBadge.innerHTML = '📱 Você é a FONTE - Transmitindo vídeo';
+                roleBadge.className = 'role-badge role-camera';
+                localMessage.innerHTML = '✅ Transmitindo ao vivo...';
                 
-                if (segundosRestantes <= 0) {
-                    clearInterval(intervaloCronometro);
-                    console.log('⏰ Tempo esgotado, ligando câmera...');
-                    ligarCameraAutomatica();
-                }
-            }, 1000);
+                // Aguarda 1 segundo e liga a câmera
+                setTimeout(() => {
+                    ligarCameraCelular();
+                }, 1000);
+                
+            } else {
+                // 💻 É COMPUTADOR: Apenas visualiza
+                deviceRoleSpan.textContent = '👁️ Visualizador (recebendo)';
+                deviceRoleSpan.className = 'status-value on';
+                localTitle.innerHTML = '📱 Visualização Local (indisponível no PC)';
+                roleBadge.innerHTML = '💻 Você é VISUALIZADOR - Aguardando transmissão';
+                roleBadge.className = 'role-badge role-viewer';
+                localMessage.innerHTML = 'ℹ️ Este dispositivo é visualizador. A câmera não será ligada.';
+                
+                // Esconde o vídeo local (não tem câmera mesmo)
+                document.querySelector('.local-wrapper').style.background = '#333';
+                localVideo.style.display = 'none';
+            }
+        }
+        
+        // ========== FUNÇÃO PARA CELULAR (LIGA CÂMERA) ==========
+        async function ligarCameraCelular() {
+            try {
+                console.log('📱 Celular detectado - ligando câmera...');
+                
+                // Solicita acesso à câmera
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: 640, 
+                        height: 480,
+                        facingMode: 'environment' // Câmera traseira
+                    },
+                    audio: false
+                });
+                
+                mediaStream = stream;
+                
+                // Mostra vídeo local
+                localVideo.srcObject = stream;
+                localVideo.style.display = 'block';
+                
+                // Garante que o vídeo está tocando
+                await localVideo.play();
+                
+                // Canvas para capturar frames
+                const canvas = document.createElement('canvas');
+                canvas.width = 640;
+                canvas.height = 480;
+                const ctx = canvas.getContext('2d');
+                
+                // Função de captura
+                const intervaloCaptura = setInterval(() => {
+                    try {
+                        ctx.drawImage(localVideo, 0, 0, 640, 480);
+                        const frame = canvas.toDataURL('image/jpeg', 0.5);
+                        socket.emit('frame', frame);
+                    } catch (e) {
+                        console.log('Erro na captura:', e);
+                    }
+                }, 200); // 5 fps
+                
+                console.log('✅ Câmera do celular ligada e transmitindo!');
+                
+            } catch (err) {
+                console.error('Erro ao ligar câmera no celular:', err);
+                localMessage.innerHTML = '❌ Erro: ' + err.message;
+            }
         }
         
         // ========== VERIFICAÇÃO DE SENHA ==========
@@ -348,99 +458,12 @@ app.get('/', (req, res) => {
             }
         });
         
-        // ========== FUNÇÃO PARA LIGAR CÂMERA ==========
-        async function ligarCameraAutomatica() {
-            try {
-                console.log('📷 Tentando ligar câmera automaticamente...');
-                
-                // Solicita acesso à câmera
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 640, height: 480 },
-                    audio: false
-                });
-                
-                mediaStream = stream;
-                
-                // Mostra vídeo local
-                localVideo.srcObject = stream;
-                
-                // Garante que o vídeo está tocando
-                await localVideo.play();
-                
-                cameraLigada = true;
-                cameraStatus.textContent = 'Ligada';
-                cameraStatus.className = 'status-value on';
-                
-                // Canvas para capturar frames
-                const canvas = document.createElement('canvas');
-                canvas.width = 640;
-                canvas.height = 480;
-                const ctx = canvas.getContext('2d');
-                
-                // Função de captura usando setInterval
-                const intervaloCaptura = setInterval(() => {
-                    if (!cameraLigada) {
-                        clearInterval(intervaloCaptura);
-                        return;
-                    }
-                    
-                    try {
-                        // Desenha o frame atual do vídeo no canvas
-                        ctx.drawImage(localVideo, 0, 0, 640, 480);
-                        
-                        // Converte para JPEG e envia
-                        const frame = canvas.toDataURL('image/jpeg', 0.5);
-                        socket.emit('frame', frame);
-                        
-                    } catch (e) {
-                        console.log('Erro na captura:', e);
-                    }
-                }, 200); // 5 frames por segundo
-                
-                console.log('✅ Câmera ligada automaticamente!');
-                
-            } catch (err) {
-                console.error('Erro ao ligar câmera:', err);
-                cameraStatus.textContent = 'Erro';
-                cameraStatus.className = 'status-value off';
-                cameraStatus.style.background = '#f44336';
-                
-                // Se falhou (ex: permissão negada), tenta novamente após 3 segundos
-                setTimeout(() => {
-                    if (!cameraLigada) {
-                        console.log('🔄 Tentando novamente...');
-                        ligarCameraAutomatica();
-                    }
-                }, 3000);
-            }
-        }
-        
-        // ========== LIGAR CÂMERA AUTOMATICAMENTE APÓS 2 SEGUNDOS ==========
-        window.addEventListener('load', () => {
-            console.log('📱 Página carregada, iniciando contagem regressiva...');
-            iniciarContagemRegressiva();
-        });
-        
-        // ========== FUNÇÃO PARA DESLIGAR (OPCIONAL) ==========
-        window.desligarCamera = function() {
-            if (intervaloCronometro) {
-                clearInterval(intervaloCronometro);
-            }
-            
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(t => t.stop());
-            }
-            
-            localVideo.srcObject = null;
-            
-            cameraLigada = false;
-            cameraStatus.textContent = 'Desligada';
-            cameraStatus.className = 'status-value off';
-        };
-        
-        // ========== FUNÇÃO PARA TIRAR FOTO ==========
+        // ========== FUNÇÃO PARA TIRAR FOTO (APENAS NO CELULAR) ==========
         window.tirarFoto = function() {
-            if (!localVideo.srcObject) return;
+            if (!mediaStream) {
+                alert('Disponível apenas no celular que está transmitindo');
+                return;
+            }
             
             const canvas = document.createElement('canvas');
             canvas.width = 640;
@@ -453,8 +476,14 @@ app.get('/', (req, res) => {
             link.click();
         };
         
-        // Expõe funções globalmente (para debug)
-        window.ligarCamera = ligarCameraAutomatica;
+        // ========== INICIALIZAÇÃO ==========
+        window.addEventListener('load', () => {
+            console.log('📱 Página carregada, detectando dispositivo...');
+            configurarPorDispositivo();
+        });
+        
+        // Expõe função de foto globalmente
+        window.tirarFoto = tirarFoto;
     </script>
 </body>
 </html>
@@ -472,10 +501,12 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, () => {
   console.log('='.repeat(60));
-  console.log('📷 SISTEMA DE CÂMERA AUTOMÁTICA');
+  console.log('📷 SISTEMA DE CÂMERA INTELIGENTE');
   console.log('='.repeat(60));
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   console.log(`🔑 Senha: ${SENHA}`);
-  console.log('⏰ Câmera liga automaticamente 2 segundos após abrir a página');
+  console.log('📱 Detecta automaticamente:');
+  console.log('   - Celular: liga câmera e transmite');
+  console.log('   - Computador: apenas visualiza');
   console.log('='.repeat(60));
 });
