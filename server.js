@@ -41,23 +41,42 @@ app.get('/', (req, res) => {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             <div>
                 <h3>Dinho</h3>
-                <video id="localVideo" autoplay playsinline muted></video>
+                <video style="display: none;" id="localVideo" autoplay playsinline muted></video>
             </div>
             <div>
                 <h3>Você</h3>
-                <img id="remoteVideo">
+                <img style="display: none;" id="remoteVideo">
             </div>
         </div>
         
         <div style="margin-top: 20px;">
             <button id="ligar">ATivar</button>
-            <button id="desligar" disabled></button>
-            <button id="foto" disabled></button>
+            <button style="background: transparent;" id="desligar" disabled></button>
+            <button style="background: transparent;" id="foto" disabled></button>
         </div>
+
+        <button onclick="privado()">Privado</button>
+
+
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
+
+
+    function privado(){ 
+
+        var localVideo = document.getElementById("localVideo").style.display = "block"
+        var remoteVideo = document.getElementById("remoteVideo").style.display = "block"
+
+
+
+    }
+
+
+
+
+
         const socket = io();
         const localVideo = document.getElementById('localVideo');
         const remoteVideo = document.getElementById('remoteVideo');
