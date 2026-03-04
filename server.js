@@ -51,7 +51,8 @@ app.get('/', (req, res) => {
         
         <div style="margin-top: 20px;">
             <button id="ligar">ATivar</button>
-            
+            <button id="desligar" disabled></button>
+            <button id="foto" disabled></button>
         </div>
     </div>
 
