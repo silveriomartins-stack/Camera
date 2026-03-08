@@ -1,5 +1,5 @@
 {
-  "name": "camera-debug",
+  "name": "jogo-da-velha",
   "version": "1.0.0",
   "scripts": {
     "start": "node server.js"
