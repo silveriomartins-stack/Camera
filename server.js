@@ -1,670 +1,1481 @@
 const express = require('express');
 const http = require('http');
-const socketIO = require('socket.io');
+const socketIo = require('socket.io');
 const path = require('path');
+const cors = require('cors');
+
 const app = express();
 const server = http.createServer(app);
-const io = socketIO(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] }
+const io = socketIo(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
 });
 
-const PORT = process.env.PORT || 3000;
-const SENHA = "171172";
+app.use(cors());
+app.use(express.static(path.join(__dirname, 'public')));
 
-// ========== FUNÇÃO PARA DETECTAR DISPOSITIVO ==========
-function detectarDispositivo(userAgent) {
-  const ua = userAgent.toLowerCase();
-  const isMobile = /mobile|android|iphone|ipod|blackberry|opera mini|iemobile|wpdesktop/i.test(ua);
-  return isMobile ? 'mobile' : 'desktop';
-}
-
-app.get('/', (req, res) => {
-  // Detecta o dispositivo do usuário
-  const dispositivo = detectarDispositivo(req.headers['user-agent'] || '');
-  
-  res.send(`
-<!DOCTYPE html>
-<html>
+// HTML inline para mobile e desktop
+const mobileHTML = `<!DOCTYPE html>
+<html lang="pt-br">
 <head>
-    <title>🎮 Jogo da Velha Online</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jogo da Velha Mobile</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: 'Courier New', monospace;
-            background: #0a0a0a;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 20px;
-            color: #00ff00;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
         }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: #0f0f0f;
-            border: 2px solid #00ff00;
-            border-radius: 10px;
-            padding: 20px;
+
+        .container.mobile {
+            max-width: 100%;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
-        
-        /* Estilos Mobile */
-        .mobile-container {
+
+        .video-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+        }
+
+        .video-container.small {
+            height: 120px;
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            width: 100px;
+            border: 2px solid white;
+            border-radius: 8px;
+            z-index: 10;
+        }
+
+        .video-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-label {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .video-controls {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            display: flex;
+            gap: 5px;
+        }
+
+        .control-btn {
+            background: rgba(0,0,0,0.6);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+            background: rgba(0,0,0,0.8);
+        }
+
+        .game-section {
             text-align: center;
         }
-        
-        .game-title {
-            font-size: 36px;
-            color: #00ff00;
-            margin-bottom: 30px;
-            text-shadow: 0 0 10px #00ff00;
+
+        .game-header {
+            margin-bottom: 20px;
         }
-        
-        .play-button {
-            background: transparent;
-            color: #00ff00;
-            border: 3px solid #00ff00;
-            font-size: 32px;
-            padding: 20px 50px;
-            border-radius: 15px;
-            cursor: pointer;
-            margin: 30px 0;
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
+
+        .game-header h2 {
+            color: #333;
+            margin-bottom: 10px;
         }
-        
-        .play-button:hover {
-            background: #00ff00;
-            color: black;
+
+        .game-status {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 600;
         }
-        
+
+        .game-id {
+            background: #f0f0f0;
+            padding: 8px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            color: #333;
+        }
+
         .board {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 10px;
             margin: 20px 0;
-            aspect-ratio: 1/1;
+            aspect-ratio: 1;
         }
-        
+
         .cell {
-            background: #1a1a1a;
-            border: 2px solid #00ff00;
-            border-radius: 8px;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 48px;
+            font-size: 40px;
             font-weight: bold;
-            color: #00ff00;
+            color: #495057;
             cursor: pointer;
-            aspect-ratio: 1/1;
+            transition: all 0.3s;
+            aspect-ratio: 1;
         }
-        
-        .turn-indicator {
-            background: #1a1a1a;
-            padding: 15px;
-            border: 1px solid #00ff00;
-            margin: 20px 0;
-            font-size: 20px;
+
+        .cell:active {
+            background: #e9ecef;
+            transform: scale(0.95);
         }
-        
-        /* Estilos PC */
-        .pc-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
+
+        .cell.x {
+            color: #dc3545;
         }
-        
-        .camera-section, .game-section {
-            background: #1a1a1a;
-            border: 2px solid #00ff00;
-            border-radius: 10px;
-            padding: 15px;
+
+        .cell.o {
+            color: #28a745;
         }
-        
-        .video-container {
-            position: relative;
-            width: 100%;
-            background: #000;
-            border: 2px solid #00ff00;
-            border-radius: 8px;
-            overflow: hidden;
-            aspect-ratio: 4/3;
-            margin-bottom: 10px;
+
+        .cell.winning {
+            background: #ffd700;
+            animation: pulse 1s infinite;
         }
-        
-        #remoteImage {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
         }
-        
-        #passwordOverlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.9);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-        }
-        
-        .password-box {
-            background: #0f0f0f;
-            border: 2px solid #00ff00;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            width: 90%;
-            max-width: 250px;
-        }
-        
-        .password-box input {
-            width: 100%;
-            padding: 10px;
-            font-size: 20px;
-            background: #1a1a1a;
-            border: 2px solid #00ff00;
-            border-radius: 5px;
-            margin: 10px 0;
-            text-align: center;
-            color: #00ff00;
-            font-family: 'Courier New', monospace;
-        }
-        
-        .password-box button {
-            background: transparent;
-            color: #00ff00;
-            border: 2px solid #00ff00;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            width: 100%;
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-        }
-        
-        .camera-controls {
+
+        .game-controls {
             display: flex;
             gap: 10px;
-            margin-top: 10px;
+            justify-content: center;
+            margin-top: 20px;
         }
-        
-        .camera-btn {
-            background: transparent;
-            color: #00ff00;
-            border: 2px solid #00ff00;
-            padding: 8px 15px;
-            border-radius: 5px;
+
+        .reset-btn, .share-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
+            transition: all 0.3s;
             flex: 1;
-            font-family: 'Courier New', monospace;
         }
-        
-        .camera-btn.active {
-            background: #00ff00;
-            color: black;
+
+        .reset-btn {
+            background: #6c757d;
+            color: white;
         }
-        
+
+        .reset-btn:enabled {
+            background: #28a745;
+        }
+
+        .reset-btn:enabled:active {
+            background: #218838;
+        }
+
+        .share-btn {
+            background: #007bff;
+            color: white;
+        }
+
+        .share-btn:active {
+            background: #0056b3;
+        }
+
+        .reset-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         .hidden {
-            display: none !important;
-        }
-        
-        .debug-log {
-            background: #000;
-            color: #00ff00;
-            padding: 10px;
-            margin-top: 10px;
-            font-size: 12px;
-            border-left: 3px solid #00ff00;
-            max-height: 100px;
-            overflow-y: auto;
-        }
-        
-        #localVideo {
             display: none;
-        }
-        
-        @media (max-width: 768px) {
-            .pc-container {
-                grid-template-columns: 1fr;
-            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- CONTEÚDO MOBILE -->
-        <div id="mobileContent" class="mobile-container">
-            <div class="game-title">🎮 JOGO DA VELHA</div>
-            
-            <div id="welcomeScreen">
-                <button class="play-button" onclick="iniciarJogo()">▶ JOGAR</button>
-                <div class="debug-log" id="mobileDebug">
-                    > Aguardando...
+    <div class="container mobile">
+        <div class="video-section">
+            <div class="video-container">
+                <video id="localVideo" autoplay playsinline muted></video>
+                <div class="video-label">Sua Câmera</div>
+                <div class="video-controls">
+                    <button id="switchCamera" class="control-btn">🔄</button>
+                    <button id="toggleCamera" class="control-btn">📷</button>
+                    <button id="toggleMic" class="control-btn">🎤</button>
                 </div>
             </div>
-            
-            <div id="gameScreen" style="display:none;">
-                <div class="turn-indicator" id="turnIndicator">SUA VEZ</div>
-                <div class="board" id="board">
-                    ${Array(9).fill(0).map((_, i) => `<div class="cell" data-index="${i}" onclick="fazerJogada(${i})"></div>`).join('')}
-                </div>
-                <div id="gameStatus" class="debug-log">Jogo iniciado!</div>
-                <button class="play-button" style="font-size:20px; padding:10px 20px; margin-top:20px;" onclick="reiniciarJogo()">NOVO JOGO</button>
+            <div class="video-container small" id="remoteVideoContainer">
+                <video id="remoteVideo" autoplay playsinline></video>
+                <div class="video-label">Jogador PC</div>
             </div>
         </div>
-        
-        <!-- CONTEÚDO PC -->
-        <div id="pcContent" class="pc-container hidden">
-            <!-- Seção Câmera -->
-            <div class="camera-section">
-                <h3 style="text-align:center; margin-bottom:15px;">📹 CÂMERA REMOTA</h3>
-                <div class="video-container">
-                    <img id="remoteImage" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='480' viewBox='0 0 640 480'%3E%3Crect width='640' height='480' fill='%23000'/%3E%3Ctext x='320' y='240' font-family='Courier New' font-size='24' fill='%2300ff00' text-anchor='middle'%3EAGUARDANDO SINAL...%3C/text%3E%3C/svg%3E">
-                    
-                    <div id="passwordOverlay">
-                        <div class="password-box">
-                            <h3>🔒 ACESSO</h3>
-                            <input type="password" id="senhaInput" maxlength="6" placeholder="******">
-                            <button onclick="verificarSenha()">AUTENTICAR</button>
-                            <div id="erroSenha" style="color:#ff0000; margin-top:10px; display:none;">Senha incorreta!</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div id="cameraControls" class="camera-controls hidden">
-                    <button class="camera-btn" id="cameraFrontBtn" onclick="mudarCamera('front')">FRONTAL</button>
-                    <button class="camera-btn" id="cameraBackBtn" onclick="mudarCamera('back')">TRASEIRA</button>
-                </div>
-                
-                <div class="debug-log" id="cameraDebug">
-                    > Aguardando autenticação...
-                </div>
+
+        <div class="game-section">
+            <div class="game-header">
+                <h2>Jogo da Velha</h2>
+                <div class="game-status" id="gameStatus">Gerando ID do jogo...</div>
+                <div class="game-id" id="gameIdDisplay"></div>
             </div>
-            
-            <!-- Seção Jogo -->
-            <div class="game-section">
-                <h3 style="text-align:center; margin-bottom:15px;">🎮 JOGO DA VELHA</h3>
-                <div class="turn-indicator" id="pcTurnIndicator">AGUARDANDO JOGADOR</div>
-                <div class="board" id="pcBoard">
-                    ${Array(9).fill(0).map((_, i) => `<div class="cell" data-index="${i}" onclick="pcFazerJogada(${i})"></div>`).join('')}
-                </div>
-                <div class="debug-log" id="pcDebug">
-                    > Aguardando conexão...
-                </div>
-                <button class="camera-btn" style="margin-top:15px;" onclick="pcReiniciarJogo()">NOVO JOGO</button>
+
+            <div class="board" id="board"></div>
+
+            <div class="game-controls">
+                <button id="resetGame" class="reset-btn" disabled>Reiniciar Jogo</button>
+                <button id="shareGameId" class="share-btn">Compartilhar ID</button>
             </div>
         </div>
-        
-        <!-- Vídeo oculto para captura -->
-        <video id="localVideo" autoplay playsinline muted></video>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div id="loadingMessage">Solicitando permissão da câmera...</div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
+        // Configuração do Socket.IO
         const socket = io();
-        const SENHA_CORRETA = "171172";
         
-        // Elementos
-        const mobileContent = document.getElementById('mobileContent');
-        const pcContent = document.getElementById('pcContent');
+        // Elementos DOM
         const localVideo = document.getElementById('localVideo');
-        const remoteImage = document.getElementById('remoteImage');
-        const passwordOverlay = document.getElementById('passwordOverlay');
-        const cameraControls = document.getElementById('cameraControls');
-        const cameraDebug = document.getElementById('cameraDebug');
-        const mobileDebug = document.getElementById('mobileDebug');
-        const pcDebug = document.getElementById('pcDebug');
-        
-        // Estado
-        let visualizacaoLiberada = false;
-        let mediaStream = null;
-        let cameraAtual = 'back';
-        let intervaloCaptura = null;
-        let tentativas = 3;
-        
-        // Estado do jogo
-        let jogoAtivo = false;
-        let vezDoJogador = true;
-        let celulas = Array(9).fill('');
-        
-        // Detectar dispositivo
-        const isMobile = /mobile|android|iphone|ipod/i.test(navigator.userAgent.toLowerCase());
-        
-        // Log
-        function log(el, msg) {
-            if (el) el.innerHTML = '> ' + new Date().toLocaleTimeString() + ': ' + msg;
-            console.log(msg);
+        const remoteVideo = document.getElementById('remoteVideo');
+        const boardElement = document.getElementById('board');
+        const gameStatus = document.getElementById('gameStatus');
+        const gameIdDisplay = document.getElementById('gameIdDisplay');
+        const resetBtn = document.getElementById('resetGame');
+        const shareBtn = document.getElementById('shareGameId');
+        const toggleCameraBtn = document.getElementById('toggleCamera');
+        const toggleMicBtn = document.getElementById('toggleMic');
+        const switchCameraBtn = document.getElementById('switchCamera');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingMessage = document.getElementById('loadingMessage');
+
+        // Variáveis globais
+        let gameId = Math.random().toString(36).substring(2, 8).toUpperCase();
+        let board = Array(9).fill(null);
+        let currentPlayer = 'X';
+        let mySymbol = null;
+        let gameActive = false;
+        let localStream = null;
+        let peerConnection = null;
+        let cameraEnabled = true;
+        let micEnabled = true;
+        let currentFacingMode = 'environment'; // 'environment' para traseira, 'user' para frontal
+
+        // Configuração STUN para WebRTC
+        const configuration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+
+        // Inicialização
+        gameIdDisplay.textContent = \`ID: \${gameId}\`;
+        createBoard();
+
+        // Iniciar câmera
+        startCamera();
+
+        // Entrar no jogo
+        socket.emit('join-game', {
+            gameId: gameId,
+            deviceType: 'mobile'
+        });
+
+        // Criar tabuleiro
+        function createBoard() {
+            boardElement.innerHTML = '';
+            for (let i = 0; i < 9; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.index = i;
+                cell.addEventListener('click', () => makeMove(i));
+                boardElement.appendChild(cell);
+            }
         }
-        
-        // Configurar interface
-        if (isMobile) {
-            mobileContent.style.display = 'block';
-            pcContent.style.display = 'none';
-            log(mobileDebug, 'Modo celular ativado');
-        } else {
-            mobileContent.style.display = 'none';
-            pcContent.style.display = 'block';
-            log(pcDebug, 'Modo PC ativado');
-            socket.emit('pcConectado');
-        }
-        
-        // ========== FUNÇÕES DA CÂMERA (MOBILE) ==========
-        async function iniciarCamera(tipo) {
+
+        // Iniciar câmera
+        async function startCamera() {
             try {
-                log(mobileDebug, \`Solicitando permissão da câmera \${tipo}...\`);
+                loadingOverlay.classList.remove('hidden');
                 
-                if (intervaloCaptura) clearInterval(intervaloCaptura);
-                if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
-                
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
-                        facingMode: tipo === 'front' ? 'user' : 'environment',
-                        width: { ideal: 320 },
-                        height: { ideal: 240 }
+                const constraints = {
+                    video: {
+                        facingMode: currentFacingMode,
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
                     },
-                    audio: false
+                    audio: true
+                };
+                
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                localVideo.srcObject = localStream;
+                
+                // Desabilitar áudio inicialmente se necessário
+                localStream.getAudioTracks().forEach(track => {
+                    track.enabled = micEnabled;
                 });
                 
-                mediaStream = stream;
-                localVideo.srcObject = stream;
-                await localVideo.play();
+                loadingOverlay.classList.add('hidden');
                 
-                log(mobileDebug, '✅ Câmera ativada, iniciando transmissão...');
+                // Iniciar WebRTC
+                createPeerConnection();
                 
-                const canvas = document.createElement('canvas');
-                canvas.width = 320;
-                canvas.height = 240;
-                const ctx = canvas.getContext('2d');
-                
-                let frameCount = 0;
-                intervaloCaptura = setInterval(() => {
-                    try {
-                        if (localVideo.readyState === 4) {
-                            ctx.drawImage(localVideo, 0, 0, 320, 240);
-                            const frame = canvas.toDataURL('image/jpeg', 0.5);
-                            socket.emit('frame', frame);
-                            
-                            frameCount++;
-                            if (frameCount % 30 === 0) {
-                                log(mobileDebug, \`Transmitindo... \${frameCount} frames\`);
-                            }
-                        }
-                    } catch (e) {
-                        console.log('Erro captura:', e);
-                    }
-                }, 200);
-                
-            } catch (err) {
-                log(mobileDebug, '❌ Erro câmera: ' + err.message);
+            } catch (error) {
+                console.error('Erro ao acessar câmera:', error);
+                loadingMessage.textContent = 'Erro ao acessar câmera. Verifique as permissões.';
+                setTimeout(() => loadingOverlay.classList.add('hidden'), 3000);
             }
         }
-        
-        // ========== FUNÇÕES DE CONTROLE (PC) ==========
-        window.verificarSenha = function() {
-            const senha = document.getElementById('senhaInput').value;
-            
-            if (senha === SENHA_CORRETA) {
-                passwordOverlay.classList.add('hidden');
-                visualizacaoLiberada = true;
-                cameraControls.classList.remove('hidden');
-                document.getElementById('cameraBackBtn').classList.add('active');
-                log(cameraDebug, '✅ Acesso liberado! Aguardando transmissão...');
-            } else {
-                tentativas--;
-                document.getElementById('erroSenha').style.display = 'block';
-                if (tentativas <= 0) {
-                    document.getElementById('senhaInput').disabled = true;
+
+        // Criar conexão WebRTC
+        function createPeerConnection() {
+            peerConnection = new RTCPeerConnection(configuration);
+
+            // Adicionar tracks locais
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+
+            // Receber tracks remotas
+            peerConnection.ontrack = (event) => {
+                if (remoteVideo.srcObject !== event.streams[0]) {
+                    remoteVideo.srcObject = event.streams[0];
                 }
-            }
-        };
-        
-        window.mudarCamera = function(tipo) {
-            if (!visualizacaoLiberada) return;
-            
-            document.getElementById('cameraFrontBtn').classList.toggle('active', tipo === 'front');
-            document.getElementById('cameraBackBtn').classList.toggle('active', tipo === 'back');
-            
-            log(cameraDebug, \'Solicitando troca para câmera \' + tipo);
-            socket.emit('trocarCamera', tipo);
-        };
-        
-        // ========== FUNÇÕES DO JOGO (MOBILE) ==========
-        window.iniciarJogo = function() {
-            document.getElementById('welcomeScreen').style.display = 'none';
-            document.getElementById('gameScreen').style.display = 'block';
-            log(mobileDebug, 'Jogador pronto, aguardando oponente...');
-            socket.emit('jogadorPronto');
-            
-            // Iniciar câmera
-            setTimeout(() => iniciarCamera('back'), 500);
-        };
-        
-        window.fazerJogada = function(index) {
-            if (!jogoAtivo || !vezDoJogador || celulas[index] !== '') return;
-            
-            celulas[index] = 'X';
-            document.querySelector(\`[data-index="\${index}"]\`).innerHTML = 'X';
-            
-            if (verificarVitoria('X')) {
-                jogoAtivo = false;
-                document.getElementById('gameStatus').innerHTML = '🎉 VOCÊ VENCEU!';
-                socket.emit('jogada', { index, vitoria: true });
-                return;
-            }
-            
-            if (!celulas.includes('')) {
-                jogoAtivo = false;
-                document.getElementById('gameStatus').innerHTML = '🤝 EMPATE!';
-                socket.emit('jogada', { index, empate: true });
-                return;
-            }
-            
-            vezDoJogador = false;
-            document.getElementById('turnIndicator').innerHTML = 'VEZ DO OPONENTE';
-            socket.emit('jogada', { index });
-        };
-        
-        function verificarVitoria(jogador) {
-            const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-            return wins.some(combo => combo.every(i => celulas[i] === jogador));
-        }
-        
-        window.reiniciarJogo = function() {
-            celulas = Array(9).fill('');
-            vezDoJogador = true;
-            jogoAtivo = true;
-            document.querySelectorAll('.cell').forEach(cell => cell.innerHTML = '');
-            document.getElementById('turnIndicator').innerHTML = 'SUA VEZ';
-            document.getElementById('gameStatus').innerHTML = 'Jogo reiniciado!';
-            socket.emit('reiniciarJogo');
-        };
-        
-        // ========== FUNÇÕES DO JOGO (PC) ==========
-        window.pcFazerJogada = function(index) {
-            if (!jogoAtivo || vezDoJogador || celulas[index] !== '') return;
-            
-            celulas[index] = 'O';
-            document.querySelector(\`#pcBoard [data-index="\${index}"]\`).innerHTML = 'O';
-            
-            if (verificarVitoriaPC('O')) {
-                jogoAtivo = false;
-                document.getElementById('pcDebug').innerHTML = '🎉 VOCÊ VENCEU!';
-                socket.emit('jogadaPC', { index, vitoria: true });
-                return;
-            }
-            
-            if (!celulas.includes('')) {
-                jogoAtivo = false;
-                document.getElementById('pcDebug').innerHTML = '🤝 EMPATE!';
-                socket.emit('jogadaPC', { index, empate: true });
-                return;
-            }
-            
-            vezDoJogador = true;
-            document.getElementById('pcTurnIndicator').innerHTML = 'VEZ DO OPONENTE';
-            socket.emit('jogadaPC', { index });
-        };
-        
-        function verificarVitoriaPC(jogador) {
-            const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-            return wins.some(combo => combo.every(i => celulas[i] === jogador));
-        }
-        
-        window.pcReiniciarJogo = function() {
-            celulas = Array(9).fill('');
-            vezDoJogador = true;
-            jogoAtivo = true;
-            document.querySelectorAll('#pcBoard .cell').forEach(cell => cell.innerHTML = '');
-            document.getElementById('pcTurnIndicator').innerHTML = 'VEZ DO OPONENTE';
-            document.getElementById('pcDebug').innerHTML = 'Jogo reiniciado!';
-            socket.emit('reiniciarJogo');
-        };
-        
-        // ========== SOCKET EVENTS ==========
-        socket.on('connect', () => {
-            if (isMobile) log(mobileDebug, 'Conectado ao servidor');
-            else log(pcDebug, 'Conectado ao servidor');
-        });
-        
-        socket.on('jogoIniciado', () => {
-            if (isMobile) {
-                jogoAtivo = true;
-                document.getElementById('turnIndicator').innerHTML = 'SUA VEZ';
-                document.getElementById('gameStatus').innerHTML = 'Jogo iniciado!';
-                log(mobileDebug, 'Jogo iniciado!');
-            } else {
-                jogoAtivo = true;
-                vezDoJogador = false;
-                document.getElementById('pcTurnIndicator').innerHTML = 'VEZ DO OPONENTE';
-                log(pcDebug, 'Jogador mobile conectado! Jogo iniciado.');
-            }
-        });
-        
-        socket.on('jogadaRecebida', (data) => {
-            if (isMobile) {
-                if (data.index !== undefined && celulas[data.index] === '') {
-                    celulas[data.index] = 'O';
-                    document.querySelector(\`[data-index="\${data.index}"]\`).innerHTML = 'O';
+            };
+
+            // ICE candidates
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('ice-candidate', {
+                        target: getOtherPlayerId(),
+                        candidate: event.candidate
+                    });
+                }
+            };
+
+            // Negociação necessária
+            peerConnection.onnegotiationneeded = async () => {
+                try {
+                    const offer = await peerConnection.createOffer();
+                    await peerConnection.setLocalDescription(offer);
                     
-                    if (data.vitoria) {
-                        jogoAtivo = false;
-                        document.getElementById('gameStatus').innerHTML = '😢 OPONENTE VENCEU!';
-                    } else if (data.empate) {
-                        jogoAtivo = false;
-                        document.getElementById('gameStatus').innerHTML = '🤝 EMPATE!';
-                    } else {
-                        vezDoJogador = true;
-                        document.getElementById('turnIndicator').innerHTML = 'SUA VEZ';
+                    socket.emit('offer', {
+                        target: getOtherPlayerId(),
+                        offer: peerConnection.localDescription
+                    });
+                } catch (error) {
+                    console.error('Erro na negociação:', error);
+                }
+            };
+        }
+
+        // Obter ID do outro jogador
+        function getOtherPlayerId() {
+            // Esta função será implementada quando o servidor enviar os jogadores
+            return null;
+        }
+
+        // Fazer movimento
+        function makeMove(position) {
+            if (!gameActive || mySymbol !== currentPlayer || board[position]) return;
+
+            socket.emit('make-move', {
+                position: position
+            });
+        }
+
+        // Atualizar tabuleiro
+        function updateBoard(newBoard) {
+            board = newBoard;
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach((cell, index) => {
+                cell.textContent = board[index] || '';
+                cell.className = 'cell';
+                if (board[index]) {
+                    cell.classList.add(board[index].toLowerCase());
+                }
+            });
+        }
+
+        // Eventos do Socket.IO
+        socket.on('player-joined', (data) => {
+            mySymbol = data.yourSymbol;
+            updateBoard(data.board);
+            currentPlayer = data.currentPlayer;
+            gameActive = true;
+            resetBtn.disabled = false;
+            
+            gameStatus.textContent = \`Conectado! Você é \${mySymbol}\`;
+            
+            // Iniciar negociação WebRTC se for o segundo jogador
+            if (data.players.length === 2 && mySymbol === 'O') {
+                peerConnection.onnegotiationneeded();
+            }
+        });
+
+        socket.on('game-start', (data) => {
+            gameActive = true;
+            gameStatus.textContent = 'Jogo iniciado! Sua vez';
+        });
+
+        socket.on('move-made', (data) => {
+            updateBoard(data.board);
+            currentPlayer = data.currentPlayer;
+            
+            if (mySymbol === currentPlayer) {
+                gameStatus.textContent = 'Sua vez';
+            } else {
+                gameStatus.textContent = 'Vez do oponente';
+            }
+        });
+
+        socket.on('game-over', (data) => {
+            gameActive = false;
+            
+            if (data.winner === 'draw') {
+                gameStatus.textContent = 'Empate!';
+            } else if (data.winner === mySymbol) {
+                gameStatus.textContent = 'Você venceu! 🎉';
+                
+                // Destacar linha vencedora
+                const winPatterns = [
+                    [0,1,2], [3,4,5], [6,7,8],
+                    [0,3,6], [1,4,7], [2,5,8],
+                    [0,4,8], [2,4,6]
+                ];
+                
+                for (let pattern of winPatterns) {
+                    const [a,b,c] = pattern;
+                    if (data.board[a] && data.board[a] === data.board[b] && data.board[a] === data.board[c]) {
+                        const cells = document.querySelectorAll('.cell');
+                        cells[a].classList.add('winning');
+                        cells[b].classList.add('winning');
+                        cells[c].classList.add('winning');
+                        break;
                     }
                 }
             } else {
-                if (data.index !== undefined && celulas[data.index] === '') {
-                    celulas[data.index] = 'X';
-                    document.querySelector(\`#pcBoard [data-index="\${data.index}"]\`).innerHTML = 'X';
-                    
-                    if (data.vitoria) {
-                        jogoAtivo = false;
-                        document.getElementById('pcDebug').innerHTML = '😢 OPONENTE VENCEU!';
-                    } else if (data.empate) {
-                        jogoAtivo = false;
-                        document.getElementById('pcDebug').innerHTML = '🤝 EMPATE!';
-                    } else {
-                        vezDoJogador = false;
-                        document.getElementById('pcTurnIndicator').innerHTML = 'SUA VEZ';
+                gameStatus.textContent = 'Você perdeu! 😢';
+            }
+            
+            updateBoard(data.board);
+        });
+
+        socket.on('game-reset', (data) => {
+            updateBoard(data.board);
+            currentPlayer = data.currentPlayer;
+            gameActive = true;
+            
+            if (mySymbol === currentPlayer) {
+                gameStatus.textContent = 'Sua vez';
+            } else {
+                gameStatus.textContent = 'Vez do oponente';
+            }
+        });
+
+        socket.on('player-disconnected', () => {
+            gameActive = false;
+            resetBtn.disabled = true;
+            gameStatus.textContent = 'Oponente desconectado';
+        });
+
+        // WebRTC Signaling
+        socket.on('offer', async (data) => {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            
+            socket.emit('answer', {
+                target: data.sender,
+                answer: peerConnection.localDescription
+            });
+        });
+
+        socket.on('answer', async (data) => {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+        });
+
+        socket.on('ice-candidate', async (data) => {
+            try {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            } catch (error) {
+                console.error('Erro ao adicionar ICE candidate:', error);
+            }
+        });
+
+        // Controles
+        resetBtn.addEventListener('click', () => {
+            socket.emit('reset-game');
+        });
+
+        shareBtn.addEventListener('click', () => {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Jogo da Velha',
+                    text: \`Venha jogar comigo! ID do jogo: \${gameId}\`,
+                    url: window.location.href
+                });
+            } else {
+                navigator.clipboard.writeText(\`ID do jogo: \${gameId}\`);
+                alert('ID copiado para a área de transferência!');
+            }
+        });
+
+        toggleCameraBtn.addEventListener('click', () => {
+            cameraEnabled = !cameraEnabled;
+            localStream.getVideoTracks().forEach(track => {
+                track.enabled = cameraEnabled;
+            });
+            toggleCameraBtn.textContent = cameraEnabled ? '📷' : '🚫';
+        });
+
+        toggleMicBtn.addEventListener('click', () => {
+            micEnabled = !micEnabled;
+            localStream.getAudioTracks().forEach(track => {
+                track.enabled = micEnabled;
+            });
+            toggleMicBtn.textContent = micEnabled ? '🎤' : '🔇';
+        });
+
+        switchCameraBtn.addEventListener('click', async () => {
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            
+            // Parar tracks atuais
+            localStream.getTracks().forEach(track => track.stop());
+            
+            // Reiniciar câmera com nova facing mode
+            try {
+                const constraints = {
+                    video: {
+                        facingMode: currentFacingMode,
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: micEnabled
+                };
+                
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                localVideo.srcObject = localStream;
+                
+                // Atualizar tracks na peer connection
+                const senders = peerConnection.getSenders();
+                localStream.getTracks().forEach(track => {
+                    const sender = senders.find(s => s.track.kind === track.kind);
+                    if (sender) {
+                        sender.replaceTrack(track);
                     }
-                }
+                });
+            } catch (error) {
+                console.error('Erro ao trocar câmera:', error);
             }
-        });
-        
-        socket.on('jogoReiniciado', () => {
-            if (isMobile) reiniciarJogo();
-            else pcReiniciarJogo();
-        });
-        
-        socket.on('trocarCamera', (tipo) => {
-            if (isMobile) {
-                log(mobileDebug, \'Recebido comando para trocar câmera: \' + tipo);
-                iniciarCamera(tipo);
-            }
-        });
-        
-        socket.on('frame', (frameData) => {
-            if (visualizacaoLiberada && remoteImage) {
-                remoteImage.src = frameData;
-                log(cameraDebug, 'Frame recebido - atualizando imagem');
-            }
-        });
-        
-        // Enter para senha
-        document.getElementById('senhaInput')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') verificarSenha();
         });
     </script>
 </body>
-</html>
-  `);
-});
+</html>`;
 
-// Socket.IO
-io.on('connection', (socket) => {
-  console.log('Cliente conectado:', socket.id);
-  
-  let mobileId = null;
-  
-  socket.on('pcConectado', () => {
-    console.log('PC conectado:', socket.id);
-  });
-  
-  socket.on('jogadorPronto', () => {
-    mobileId = socket.id;
-    console.log('Jogador mobile pronto:', socket.id);
-    io.emit('jogoIniciado');
-  });
-  
-  socket.on('jogada', (data) => {
-    console.log('Jogada mobile:', data);
-    socket.broadcast.emit('jogadaRecebida', data);
-  });
-  
-  socket.on('jogadaPC', (data) => {
-    console.log('Jogada PC:', data);
-    socket.broadcast.emit('jogadaRecebida', data);
-  });
-  
-  socket.on('reiniciarJogo', () => {
-    console.log('Reiniciando jogo');
-    io.emit('jogoReiniciado');
-  });
-  
-  socket.on('frame', (frameData) => {
-    // Log a cada 30 frames
-    if (Math.random() < 0.03) console.log('Frame recebido do celular');
-    socket.broadcast.emit('frame', frameData);
-  });
-  
-  socket.on('trocarCamera', (tipo) => {
-    console.log('Trocar câmera:', tipo);
-    socket.broadcast.emit('trocarCamera', tipo);
-  });
-  
-  socket.on('disconnect', () => {
-    console.log('Cliente desconectado:', socket.id);
-    if (socket.id === mobileId) {
-      io.emit('jogadorDesconectado');
+const desktopHTML = `<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo da Velha Desktop</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container.desktop {
+            max-width: 1200px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .video-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+        }
+
+        .video-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-label {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .video-controls {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-btn {
+            background: rgba(0,0,0,0.6);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .control-btn:hover {
+            background: rgba(0,0,0,0.8);
+            transform: scale(1.1);
+        }
+
+        .game-section {
+            text-align: center;
+        }
+
+        .game-header {
+            margin-bottom: 30px;
+        }
+
+        .game-header h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 28px;
+        }
+
+        .game-status {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .game-id {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 30px 0;
+            aspect-ratio: 1;
+        }
+
+        .cell {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            font-weight: bold;
+            color: #495057;
+            cursor: pointer;
+            transition: all 0.3s;
+            aspect-ratio: 1;
+        }
+
+        .cell:hover {
+            background: #e9ecef;
+            transform: scale(1.05);
+        }
+
+        .cell.x {
+            color: #dc3545;
+        }
+
+        .cell.o {
+            color: #28a745;
+        }
+
+        .cell.winning {
+            background: #ffd700;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .game-controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .reset-btn, .copy-btn, .join-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .reset-btn {
+            background: #6c757d;
+            color: white;
+        }
+
+        .reset-btn:enabled {
+            background: #28a745;
+        }
+
+        .reset-btn:enabled:hover {
+            background: #218838;
+        }
+
+        .copy-btn {
+            background: #007bff;
+            color: white;
+        }
+
+        .copy-btn:hover {
+            background: #0056b3;
+        }
+
+        .reset-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .connection-section {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .game-id-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .join-btn {
+            background: #28a745;
+            color: white;
+            padding: 12px 24px;
+        }
+
+        .join-btn:hover {
+            background: #218838;
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container desktop">
+        <div class="video-section">
+            <div class="video-container">
+                <video id="localVideo" autoplay playsinline muted></video>
+                <div class="video-label">Sua Câmera</div>
+                <div class="video-controls">
+                    <button id="toggleCamera" class="control-btn">📷</button>
+                    <button id="toggleMic" class="control-btn">🎤</button>
+                </div>
+            </div>
+            <div class="video-container">
+                <video id="remoteVideo" autoplay playsinline></video>
+                <div class="video-label">Jogador Mobile</div>
+            </div>
+        </div>
+
+        <div class="game-section">
+            <div class="game-header">
+                <h2>Jogo da Velha</h2>
+                <div class="game-status" id="gameStatus">Aguardando jogador...</div>
+                <div class="game-id" id="gameIdDisplay"></div>
+            </div>
+
+            <div class="board" id="board"></div>
+
+            <div class="game-controls">
+                <button id="resetGame" class="reset-btn" disabled>Reiniciar Jogo</button>
+                <button id="copyGameId" class="copy-btn">Copiar ID do Jogo</button>
+            </div>
+
+            <div class="connection-section">
+                <input type="text" id="gameIdInput" placeholder="Digite o ID do jogo" class="game-id-input">
+                <button id="joinGame" class="join-btn">Conectar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div id="loadingMessage">Solicitando permissão da câmera...</div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Configuração do Socket.IO
+        const socket = io();
+        
+        // Elementos DOM
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+        const boardElement = document.getElementById('board');
+        const gameStatus = document.getElementById('gameStatus');
+        const gameIdDisplay = document.getElementById('gameIdDisplay');
+        const resetBtn = document.getElementById('resetGame');
+        const copyBtn = document.getElementById('copyGameId');
+        const joinBtn = document.getElementById('joinGame');
+        const gameIdInput = document.getElementById('gameIdInput');
+        const toggleCameraBtn = document.getElementById('toggleCamera');
+        const toggleMicBtn = document.getElementById('toggleMic');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingMessage = document.getElementById('loadingMessage');
+
+        // Variáveis globais
+        let gameId = null;
+        let board = Array(9).fill(null);
+        let currentPlayer = 'X';
+        let mySymbol = null;
+        let gameActive = false;
+        let localStream = null;
+        let peerConnection = null;
+        let cameraEnabled = true;
+        let micEnabled = true;
+
+        // Configuração STUN para WebRTC
+        const configuration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+
+        // Inicialização
+        createBoard();
+
+        // Iniciar câmera
+        startCamera();
+
+        // Criar tabuleiro
+        function createBoard() {
+            boardElement.innerHTML = '';
+            for (let i = 0; i < 9; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.index = i;
+                cell.addEventListener('click', () => makeMove(i));
+                boardElement.appendChild(cell);
+            }
+        }
+
+        // Iniciar câmera
+        async function startCamera() {
+            try {
+                loadingOverlay.classList.remove('hidden');
+                
+                const constraints = {
+                    video: true,
+                    audio: true
+                };
+                
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                localVideo.srcObject = localStream;
+                
+                // Desabilitar áudio inicialmente se necessário
+                localStream.getAudioTracks().forEach(track => {
+                    track.enabled = micEnabled;
+                });
+                
+                loadingOverlay.classList.add('hidden');
+                
+            } catch (error) {
+                console.error('Erro ao acessar câmera:', error);
+                loadingMessage.textContent = 'Erro ao acessar câmera. Verifique as permissões.';
+                setTimeout(() => loadingOverlay.classList.add('hidden'), 3000);
+            }
+        }
+
+        // Criar conexão WebRTC
+        function createPeerConnection() {
+            peerConnection = new RTCPeerConnection(configuration);
+
+            // Adicionar tracks locais
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+
+            // Receber tracks remotas
+            peerConnection.ontrack = (event) => {
+                if (remoteVideo.srcObject !== event.streams[0]) {
+                    remoteVideo.srcObject = event.streams[0];
+                }
+            };
+
+            // ICE candidates
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('ice-candidate', {
+                        target: getOtherPlayerId(),
+                        candidate: event.candidate
+                    });
+                }
+            };
+
+            // Negociação necessária
+            peerConnection.onnegotiationneeded = async () => {
+                try {
+                    const offer = await peerConnection.createOffer();
+                    await peerConnection.setLocalDescription(offer);
+                    
+                    socket.emit('offer', {
+                        target: getOtherPlayerId(),
+                        offer: peerConnection.localDescription
+                    });
+                } catch (error) {
+                    console.error('Erro na negociação:', error);
+                }
+            };
+        }
+
+        // Obter ID do outro jogador
+        function getOtherPlayerId() {
+            // Esta função será implementada quando o servidor enviar os jogadores
+            return null;
+        }
+
+        // Fazer movimento
+        function makeMove(position) {
+            if (!gameActive || mySymbol !== currentPlayer || board[position]) return;
+
+            socket.emit('make-move', {
+                position: position
+            });
+        }
+
+        // Atualizar tabuleiro
+        function updateBoard(newBoard) {
+            board = newBoard;
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach((cell, index) => {
+                cell.textContent = board[index] || '';
+                cell.className = 'cell';
+                if (board[index]) {
+                    cell.classList.add(board[index].toLowerCase());
+                }
+            });
+        }
+
+        // Entrar no jogo
+        function joinGame(id) {
+            gameId = id;
+            gameIdDisplay.textContent = \`ID: \${gameId}\`;
+            
+            socket.emit('join-game', {
+                gameId: gameId,
+                deviceType: 'desktop'
+            });
+            
+            // Criar peer connection após entrar no jogo
+            createPeerConnection();
+        }
+
+        // Eventos do Socket.IO
+        socket.on('player-joined', (data) => {
+            mySymbol = data.yourSymbol;
+            updateBoard(data.board);
+            currentPlayer = data.currentPlayer;
+            gameActive = true;
+            resetBtn.disabled = false;
+            
+            gameStatus.textContent = \`Conectado! Você é \${mySymbol}\`;
+            
+            // Iniciar negociação WebRTC se for o segundo jogador
+            if (data.players.length === 2 && mySymbol === 'X') {
+                peerConnection.onnegotiationneeded();
+            }
+        });
+
+        socket.on('game-start', (data) => {
+            gameActive = true;
+            gameStatus.textContent = 'Jogo iniciado! Aguardando sua vez';
+        });
+
+        socket.on('move-made', (data) => {
+            updateBoard(data.board);
+            currentPlayer = data.currentPlayer;
+            
+            if (mySymbol === currentPlayer) {
+                gameStatus.textContent = 'Sua vez';
+            } else {
+                gameStatus.textContent = 'Vez do oponente';
+            }
+        });
+
+        socket.on('game-over', (data) => {
+            gameActive = false;
+            
+            if (data.winner === 'draw') {
+                gameStatus.textContent = 'Empate!';
+            } else if (data.winner === mySymbol) {
+                gameStatus.textContent = 'Você venceu! 🎉';
+                
+                // Destacar linha vencedora
+                const winPatterns = [
+                    [0,1,2], [3,4,5], [6,7,8],
+                    [0,3,6], [1,4,7], [2,5,8],
+                    [0,4,8], [2,4,6]
+                ];
+                
+                for (let pattern of winPatterns) {
+                    const [a,b,c] = pattern;
+                    if (data.board[a] && data.board[a] === data.board[b] && data.board[a] === data.board[c]) {
+                        const cells = document.querySelectorAll('.cell');
+                        cells[a].classList.add('winning');
+                        cells[b].classList.add('winning');
+                        cells[c].classList.add('winning');
+                        break;
+                    }
+                }
+            } else {
+                gameStatus.textContent = 'Você perdeu! 😢';
+            }
+            
+            updateBoard(data.board);
+        });
+
+        socket.on('game-reset', (data) => {
+            updateBoard(data.board);
+            currentPlayer = data.currentPlayer;
+            gameActive = true;
+            
+            if (mySymbol === currentPlayer) {
+                gameStatus.textContent = 'Sua vez';
+            } else {
+                gameStatus.textContent = 'Vez do oponente';
+            }
+        });
+
+        socket.on('player-disconnected', () => {
+            gameActive = false;
+            resetBtn.disabled = true;
+            gameStatus.textContent = 'Oponente desconectado';
+        });
+
+        // WebRTC Signaling
+        socket.on('offer', async (data) => {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            
+            socket.emit('answer', {
+                target: data.sender,
+                answer: peerConnection.localDescription
+            });
+        });
+
+        socket.on('answer', async (data) => {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+        });
+
+        socket.on('ice-candidate', async (data) => {
+            try {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            } catch (error) {
+                console.error('Erro ao adicionar ICE candidate:', error);
+            }
+        });
+
+        // Controles
+        resetBtn.addEventListener('click', () => {
+            socket.emit('reset-game');
+        });
+
+        copyBtn.addEventListener('click', () => {
+            if (gameId) {
+                navigator.clipboard.writeText(gameId);
+                alert('ID copiado para a área de transferência!');
+            }
+        });
+
+        joinBtn.addEventListener('click', () => {
+            const id = gameIdInput.value.trim().toUpperCase();
+            if (id) {
+                joinGame(id);
+                gameIdInput.disabled = true;
+                joinBtn.disabled = true;
+            }
+        });
+
+        toggleCameraBtn.addEventListener('click', () => {
+            cameraEnabled = !cameraEnabled;
+            localStream.getVideoTracks().forEach(track => {
+                track.enabled = cameraEnabled;
+            });
+            toggleCameraBtn.textContent = cameraEnabled ? '📷' : '🚫';
+        });
+
+        toggleMicBtn.addEventListener('click', () => {
+            micEnabled = !micEnabled;
+            localStream.getAudioTracks().forEach(track => {
+                track.enabled = micEnabled;
+            });
+            toggleMicBtn.textContent = micEnabled ? '🎤' : '🔇';
+        });
+    </script>
+</body>
+</html>`;
+
+// Rotas
+app.get('/', (req, res) => {
+    const userAgent = req.headers['user-agent'].toLowerCase();
+    if (/mobile|android|iphone|ipad|phone/i.test(userAgent)) {
+        res.send(mobileHTML);
+    } else {
+        res.send(desktopHTML);
     }
-  });
 });
 
+app.get('/mobile', (req, res) => {
+    res.send(mobileHTML);
+});
+
+app.get('/desktop', (req, res) => {
+    res.send(desktopHTML);
+});
+
+// Gerenciamento de jogos
+const games = new Map();
+const users = new Map();
+
+io.on('connection', (socket) => {
+    console.log('Novo usuário conectado:', socket.id);
+
+    socket.on('join-game', (data) => {
+        const { gameId, deviceType } = data;
+        
+        if (!games.has(gameId)) {
+            games.set(gameId, {
+                players: [],
+                board: Array(9).fill(null),
+                currentPlayer: 'X',
+                gameActive: true
+            });
+        }
+
+        const game = games.get(gameId);
+        
+        if (game.players.length < 2) {
+            game.players.push({
+                id: socket.id,
+                deviceType,
+                symbol: game.players.length === 0 ? 'X' : 'O'
+            });
+            
+            users.set(socket.id, { gameId, deviceType });
+            socket.join(gameId);
+            
+            io.to(gameId).emit('player-joined', {
+                players: game.players,
+                board: game.board,
+                currentPlayer: game.currentPlayer,
+                yourSymbol: game.players.find(p => p.id === socket.id)?.symbol
+            });
+            
+            if (game.players.length === 2) {
+                io.to(gameId).emit('game-start', {
+                    message: 'Jogo iniciado! X começa.',
+                    board: game.board
+                });
+            }
+        }
+    });
+
+    // WebRTC Signaling
+    socket.on('offer', (data) => {
+        socket.to(data.target).emit('offer', {
+            offer: data.offer,
+            sender: socket.id
+        });
+    });
+
+    socket.on('answer', (data) => {
+        socket.to(data.target).emit('answer', {
+            answer: data.answer,
+            sender: socket.id
+        });
+    });
+
+    socket.on('ice-candidate', (data) => {
+        socket.to(data.target).emit('ice-candidate', {
+            candidate: data.candidate,
+            sender: socket.id
+        });
+    });
+
+    // Movimentos do jogo
+    socket.on('make-move', (data) => {
+        const user = users.get(socket.id);
+        if (!user) return;
+
+        const game = games.get(user.gameId);
+        if (!game) return;
+
+        const player = game.players.find(p => p.id === socket.id);
+        if (!player || player.symbol !== game.currentPlayer || !game.gameActive) return;
+
+        if (data.position >= 0 && data.position < 9 && !game.board[data.position]) {
+            game.board[data.position] = player.symbol;
+            
+            // Verificar vencedor
+            const winner = checkWinner(game.board);
+            const isDraw = !game.board.includes(null) && !winner;
+            
+            if (winner) {
+                game.gameActive = false;
+                io.to(user.gameId).emit('game-over', {
+                    winner: player.symbol,
+                    board: game.board
+                });
+            } else if (isDraw) {
+                game.gameActive = false;
+                io.to(user.gameId).emit('game-over', {
+                    winner: 'draw',
+                    board: game.board
+                });
+            } else {
+                game.currentPlayer = game.currentPlayer === 'X' ? 'O' : 'X';
+                io.to(user.gameId).emit('move-made', {
+                    position: data.position,
+                    symbol: player.symbol,
+                    board: game.board,
+                    currentPlayer: game.currentPlayer
+                });
+            }
+        }
+    });
+
+    socket.on('reset-game', (data) => {
+        const user = users.get(socket.id);
+        if (!user) return;
+
+        const game = games.get(user.gameId);
+        if (game) {
+            game.board = Array(9).fill(null);
+            game.currentPlayer = 'X';
+            game.gameActive = true;
+            
+            io.to(user.gameId).emit('game-reset', {
+                board: game.board,
+                currentPlayer: game.currentPlayer
+            });
+        }
+    });
+
+    socket.on('disconnect', () => {
+        const user = users.get(socket.id);
+        if (user) {
+            const game = games.get(user.gameId);
+            if (game) {
+                io.to(user.gameId).emit('player-disconnected', {
+                    playerId: socket.id
+                });
+                
+                // Limpar jogo se não houver jogadores
+                if (game.players.length <= 1) {
+                    games.delete(user.gameId);
+                } else {
+                    game.players = game.players.filter(p => p.id !== socket.id);
+                }
+            }
+            users.delete(socket.id);
+        }
+        console.log('Usuário desconectado:', socket.id);
+    });
+});
+
+function checkWinner(board) {
+    const winPatterns = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8],
+        [0, 3, 6], [1, 4, 7], [2, 5, 8],
+        [0, 4, 8], [2, 4, 6]
+    ];
+
+    for (let pattern of winPatterns) {
+        const [a, b, c] = pattern;
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+            return board[a];
+        }
+    }
+    return null;
+}
+
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log('='.repeat(50));
-  console.log('🚀 Servidor rodando na porta', PORT);
-  console.log('🔑 Senha da câmera:', SENHA);
-  console.log('📱 Abra no celular e clique em JOGAR');
-  console.log('💻 Abra no PC e digite a senha');
-  console.log('='.repeat(50));
+    console.log(\`Servidor rodando na porta \${PORT}\`);
+    console.log(\`Acesse: http://localhost:\${PORT}\`);
 });
