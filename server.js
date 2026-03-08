@@ -1,1481 +1,261 @@
 const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const path = require('path');
-const cors = require('cors');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
-const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
-});
+const httpServer = createServer(app);
+const io = new Server(httpServer, { cors: { origin: '*' } });
 
-app.use(cors());
-app.use(express.static(path.join(__dirname, 'public')));
+const gameRooms = {};
 
-// HTML inline para mobile e desktop
-const mobileHTML = `<!DOCTYPE html>
-<html lang="pt-br">
+// ====================== HTML + CSS + JS TUDO INLINE ======================
+const fullHTML = `
+<!DOCTYPE html>
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Jogo da Velha Mobile</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 10px;
-        }
-
-        .container.mobile {
-            max-width: 100%;
-            width: 100%;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            padding: 15px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-
-        .video-section {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .video-container {
-            position: relative;
-            background: #000;
-            border-radius: 12px;
-            overflow: hidden;
-            aspect-ratio: 4/3;
-        }
-
-        .video-container.small {
-            height: 120px;
-            position: absolute;
-            top: 80px;
-            right: 20px;
-            width: 100px;
-            border: 2px solid white;
-            border-radius: 8px;
-            z-index: 10;
-        }
-
-        .video-container video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .video-label {
-            position: absolute;
-            bottom: 5px;
-            left: 5px;
-            background: rgba(0,0,0,0.6);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-        }
-
-        .video-controls {
-            position: absolute;
-            bottom: 5px;
-            right: 5px;
-            display: flex;
-            gap: 5px;
-        }
-
-        .control-btn {
-            background: rgba(0,0,0,0.6);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            font-size: 20px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s;
-        }
-
-        .control-btn:active {
-            transform: scale(0.95);
-            background: rgba(0,0,0,0.8);
-        }
-
-        .game-section {
-            text-align: center;
-        }
-
-        .game-header {
-            margin-bottom: 20px;
-        }
-
-        .game-header h2 {
-            color: #333;
-            margin-bottom: 10px;
-        }
-
-        .game-status {
-            font-size: 16px;
-            color: #666;
-            margin-bottom: 5px;
-            font-weight: 600;
-        }
-
-        .game-id {
-            background: #f0f0f0;
-            padding: 8px;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 14px;
-            color: #333;
-        }
-
-        .board {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin: 20px 0;
-            aspect-ratio: 1;
-        }
-
-        .cell {
-            background: #f8f9fa;
-            border: 2px solid #dee2e6;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 40px;
-            font-weight: bold;
-            color: #495057;
-            cursor: pointer;
-            transition: all 0.3s;
-            aspect-ratio: 1;
-        }
-
-        .cell:active {
-            background: #e9ecef;
-            transform: scale(0.95);
-        }
-
-        .cell.x {
-            color: #dc3545;
-        }
-
-        .cell.o {
-            color: #28a745;
-        }
-
-        .cell.winning {
-            background: #ffd700;
-            animation: pulse 1s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-
-        .game-controls {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 20px;
-        }
-
-        .reset-btn, .share-btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            flex: 1;
-        }
-
-        .reset-btn {
-            background: #6c757d;
-            color: white;
-        }
-
-        .reset-btn:enabled {
-            background: #28a745;
-        }
-
-        .reset-btn:enabled:active {
-            background: #218838;
-        }
-
-        .share-btn {
-            background: #007bff;
-            color: white;
-        }
-
-        .share-btn:active {
-            background: #0056b3;
-        }
-
-        .reset-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        /* Loading overlay */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.8);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            color: white;
-        }
-
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .hidden {
-            display: none;
-        }
-    </style>
-</head>
-<body>
-    <div class="container mobile">
-        <div class="video-section">
-            <div class="video-container">
-                <video id="localVideo" autoplay playsinline muted></video>
-                <div class="video-label">Sua Câmera</div>
-                <div class="video-controls">
-                    <button id="switchCamera" class="control-btn">🔄</button>
-                    <button id="toggleCamera" class="control-btn">📷</button>
-                    <button id="toggleMic" class="control-btn">🎤</button>
-                </div>
-            </div>
-            <div class="video-container small" id="remoteVideoContainer">
-                <video id="remoteVideo" autoplay playsinline></video>
-                <div class="video-label">Jogador PC</div>
-            </div>
-        </div>
-
-        <div class="game-section">
-            <div class="game-header">
-                <h2>Jogo da Velha</h2>
-                <div class="game-status" id="gameStatus">Gerando ID do jogo...</div>
-                <div class="game-id" id="gameIdDisplay"></div>
-            </div>
-
-            <div class="board" id="board"></div>
-
-            <div class="game-controls">
-                <button id="resetGame" class="reset-btn" disabled>Reiniciar Jogo</button>
-                <button id="shareGameId" class="share-btn">Compartilhar ID</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="loadingOverlay" class="loading-overlay">
-        <div class="loading-spinner"></div>
-        <div id="loadingMessage">Solicitando permissão da câmera...</div>
-    </div>
-
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        // Configuração do Socket.IO
-        const socket = io();
-        
-        // Elementos DOM
-        const localVideo = document.getElementById('localVideo');
-        const remoteVideo = document.getElementById('remoteVideo');
-        const boardElement = document.getElementById('board');
-        const gameStatus = document.getElementById('gameStatus');
-        const gameIdDisplay = document.getElementById('gameIdDisplay');
-        const resetBtn = document.getElementById('resetGame');
-        const shareBtn = document.getElementById('shareGameId');
-        const toggleCameraBtn = document.getElementById('toggleCamera');
-        const toggleMicBtn = document.getElementById('toggleMic');
-        const switchCameraBtn = document.getElementById('switchCamera');
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        const loadingMessage = document.getElementById('loadingMessage');
-
-        // Variáveis globais
-        let gameId = Math.random().toString(36).substring(2, 8).toUpperCase();
-        let board = Array(9).fill(null);
-        let currentPlayer = 'X';
-        let mySymbol = null;
-        let gameActive = false;
-        let localStream = null;
-        let peerConnection = null;
-        let cameraEnabled = true;
-        let micEnabled = true;
-        let currentFacingMode = 'environment'; // 'environment' para traseira, 'user' para frontal
-
-        // Configuração STUN para WebRTC
-        const configuration = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-        };
-
-        // Inicialização
-        gameIdDisplay.textContent = \`ID: \${gameId}\`;
-        createBoard();
-
-        // Iniciar câmera
-        startCamera();
-
-        // Entrar no jogo
-        socket.emit('join-game', {
-            gameId: gameId,
-            deviceType: 'mobile'
-        });
-
-        // Criar tabuleiro
-        function createBoard() {
-            boardElement.innerHTML = '';
-            for (let i = 0; i < 9; i++) {
-                const cell = document.createElement('div');
-                cell.className = 'cell';
-                cell.dataset.index = i;
-                cell.addEventListener('click', () => makeMove(i));
-                boardElement.appendChild(cell);
-            }
-        }
-
-        // Iniciar câmera
-        async function startCamera() {
-            try {
-                loadingOverlay.classList.remove('hidden');
-                
-                const constraints = {
-                    video: {
-                        facingMode: currentFacingMode,
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    },
-                    audio: true
-                };
-                
-                localStream = await navigator.mediaDevices.getUserMedia(constraints);
-                localVideo.srcObject = localStream;
-                
-                // Desabilitar áudio inicialmente se necessário
-                localStream.getAudioTracks().forEach(track => {
-                    track.enabled = micEnabled;
-                });
-                
-                loadingOverlay.classList.add('hidden');
-                
-                // Iniciar WebRTC
-                createPeerConnection();
-                
-            } catch (error) {
-                console.error('Erro ao acessar câmera:', error);
-                loadingMessage.textContent = 'Erro ao acessar câmera. Verifique as permissões.';
-                setTimeout(() => loadingOverlay.classList.add('hidden'), 3000);
-            }
-        }
-
-        // Criar conexão WebRTC
-        function createPeerConnection() {
-            peerConnection = new RTCPeerConnection(configuration);
-
-            // Adicionar tracks locais
-            localStream.getTracks().forEach(track => {
-                peerConnection.addTrack(track, localStream);
-            });
-
-            // Receber tracks remotas
-            peerConnection.ontrack = (event) => {
-                if (remoteVideo.srcObject !== event.streams[0]) {
-                    remoteVideo.srcObject = event.streams[0];
-                }
-            };
-
-            // ICE candidates
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    socket.emit('ice-candidate', {
-                        target: getOtherPlayerId(),
-                        candidate: event.candidate
-                    });
-                }
-            };
-
-            // Negociação necessária
-            peerConnection.onnegotiationneeded = async () => {
-                try {
-                    const offer = await peerConnection.createOffer();
-                    await peerConnection.setLocalDescription(offer);
-                    
-                    socket.emit('offer', {
-                        target: getOtherPlayerId(),
-                        offer: peerConnection.localDescription
-                    });
-                } catch (error) {
-                    console.error('Erro na negociação:', error);
-                }
-            };
-        }
-
-        // Obter ID do outro jogador
-        function getOtherPlayerId() {
-            // Esta função será implementada quando o servidor enviar os jogadores
-            return null;
-        }
-
-        // Fazer movimento
-        function makeMove(position) {
-            if (!gameActive || mySymbol !== currentPlayer || board[position]) return;
-
-            socket.emit('make-move', {
-                position: position
-            });
-        }
-
-        // Atualizar tabuleiro
-        function updateBoard(newBoard) {
-            board = newBoard;
-            const cells = document.querySelectorAll('.cell');
-            cells.forEach((cell, index) => {
-                cell.textContent = board[index] || '';
-                cell.className = 'cell';
-                if (board[index]) {
-                    cell.classList.add(board[index].toLowerCase());
-                }
-            });
-        }
-
-        // Eventos do Socket.IO
-        socket.on('player-joined', (data) => {
-            mySymbol = data.yourSymbol;
-            updateBoard(data.board);
-            currentPlayer = data.currentPlayer;
-            gameActive = true;
-            resetBtn.disabled = false;
-            
-            gameStatus.textContent = \`Conectado! Você é \${mySymbol}\`;
-            
-            // Iniciar negociação WebRTC se for o segundo jogador
-            if (data.players.length === 2 && mySymbol === 'O') {
-                peerConnection.onnegotiationneeded();
-            }
-        });
-
-        socket.on('game-start', (data) => {
-            gameActive = true;
-            gameStatus.textContent = 'Jogo iniciado! Sua vez';
-        });
-
-        socket.on('move-made', (data) => {
-            updateBoard(data.board);
-            currentPlayer = data.currentPlayer;
-            
-            if (mySymbol === currentPlayer) {
-                gameStatus.textContent = 'Sua vez';
-            } else {
-                gameStatus.textContent = 'Vez do oponente';
-            }
-        });
-
-        socket.on('game-over', (data) => {
-            gameActive = false;
-            
-            if (data.winner === 'draw') {
-                gameStatus.textContent = 'Empate!';
-            } else if (data.winner === mySymbol) {
-                gameStatus.textContent = 'Você venceu! 🎉';
-                
-                // Destacar linha vencedora
-                const winPatterns = [
-                    [0,1,2], [3,4,5], [6,7,8],
-                    [0,3,6], [1,4,7], [2,5,8],
-                    [0,4,8], [2,4,6]
-                ];
-                
-                for (let pattern of winPatterns) {
-                    const [a,b,c] = pattern;
-                    if (data.board[a] && data.board[a] === data.board[b] && data.board[a] === data.board[c]) {
-                        const cells = document.querySelectorAll('.cell');
-                        cells[a].classList.add('winning');
-                        cells[b].classList.add('winning');
-                        cells[c].classList.add('winning');
-                        break;
-                    }
-                }
-            } else {
-                gameStatus.textContent = 'Você perdeu! 😢';
-            }
-            
-            updateBoard(data.board);
-        });
-
-        socket.on('game-reset', (data) => {
-            updateBoard(data.board);
-            currentPlayer = data.currentPlayer;
-            gameActive = true;
-            
-            if (mySymbol === currentPlayer) {
-                gameStatus.textContent = 'Sua vez';
-            } else {
-                gameStatus.textContent = 'Vez do oponente';
-            }
-        });
-
-        socket.on('player-disconnected', () => {
-            gameActive = false;
-            resetBtn.disabled = true;
-            gameStatus.textContent = 'Oponente desconectado';
-        });
-
-        // WebRTC Signaling
-        socket.on('offer', async (data) => {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            
-            socket.emit('answer', {
-                target: data.sender,
-                answer: peerConnection.localDescription
-            });
-        });
-
-        socket.on('answer', async (data) => {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-        });
-
-        socket.on('ice-candidate', async (data) => {
-            try {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-            } catch (error) {
-                console.error('Erro ao adicionar ICE candidate:', error);
-            }
-        });
-
-        // Controles
-        resetBtn.addEventListener('click', () => {
-            socket.emit('reset-game');
-        });
-
-        shareBtn.addEventListener('click', () => {
-            if (navigator.share) {
-                navigator.share({
-                    title: 'Jogo da Velha',
-                    text: \`Venha jogar comigo! ID do jogo: \${gameId}\`,
-                    url: window.location.href
-                });
-            } else {
-                navigator.clipboard.writeText(\`ID do jogo: \${gameId}\`);
-                alert('ID copiado para a área de transferência!');
-            }
-        });
-
-        toggleCameraBtn.addEventListener('click', () => {
-            cameraEnabled = !cameraEnabled;
-            localStream.getVideoTracks().forEach(track => {
-                track.enabled = cameraEnabled;
-            });
-            toggleCameraBtn.textContent = cameraEnabled ? '📷' : '🚫';
-        });
-
-        toggleMicBtn.addEventListener('click', () => {
-            micEnabled = !micEnabled;
-            localStream.getAudioTracks().forEach(track => {
-                track.enabled = micEnabled;
-            });
-            toggleMicBtn.textContent = micEnabled ? '🎤' : '🔇';
-        });
-
-        switchCameraBtn.addEventListener('click', async () => {
-            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-            
-            // Parar tracks atuais
-            localStream.getTracks().forEach(track => track.stop());
-            
-            // Reiniciar câmera com nova facing mode
-            try {
-                const constraints = {
-                    video: {
-                        facingMode: currentFacingMode,
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    },
-                    audio: micEnabled
-                };
-                
-                localStream = await navigator.mediaDevices.getUserMedia(constraints);
-                localVideo.srcObject = localStream;
-                
-                // Atualizar tracks na peer connection
-                const senders = peerConnection.getSenders();
-                localStream.getTracks().forEach(track => {
-                    const sender = senders.find(s => s.track.kind === track.kind);
-                    if (sender) {
-                        sender.replaceTrack(track);
-                    }
-                });
-            } catch (error) {
-                console.error('Erro ao trocar câmera:', error);
-            }
-        });
-    </script>
-</body>
-</html>`;
-
-const desktopHTML = `<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jogo da Velha Desktop</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-
-        .container.desktop {
-            max-width: 1200px;
-            width: 100%;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-
-        .video-section {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .video-container {
-            position: relative;
-            background: #000;
-            border-radius: 12px;
-            overflow: hidden;
-            aspect-ratio: 4/3;
-        }
-
-        .video-container video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .video-label {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.6);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-
-        .video-controls {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            display: flex;
-            gap: 10px;
-        }
-
-        .control-btn {
-            background: rgba(0,0,0,0.6);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 45px;
-            height: 45px;
-            font-size: 20px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s;
-        }
-
-        .control-btn:hover {
-            background: rgba(0,0,0,0.8);
-            transform: scale(1.1);
-        }
-
-        .game-section {
-            text-align: center;
-        }
-
-        .game-header {
-            margin-bottom: 30px;
-        }
-
-        .game-header h2 {
-            color: #333;
-            margin-bottom: 15px;
-            font-size: 28px;
-        }
-
-        .game-status {
-            font-size: 18px;
-            color: #666;
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-
-        .game-id {
-            background: #f0f0f0;
-            padding: 10px;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 16px;
-            color: #333;
-        }
-
-        .board {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin: 30px 0;
-            aspect-ratio: 1;
-        }
-
-        .cell {
-            background: #f8f9fa;
-            border: 2px solid #dee2e6;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 60px;
-            font-weight: bold;
-            color: #495057;
-            cursor: pointer;
-            transition: all 0.3s;
-            aspect-ratio: 1;
-        }
-
-        .cell:hover {
-            background: #e9ecef;
-            transform: scale(1.05);
-        }
-
-        .cell.x {
-            color: #dc3545;
-        }
-
-        .cell.o {
-            color: #28a745;
-        }
-
-        .cell.winning {
-            background: #ffd700;
-            animation: pulse 1s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-
-        .game-controls {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            margin: 20px 0;
-        }
-
-        .reset-btn, .copy-btn, .join-btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .reset-btn {
-            background: #6c757d;
-            color: white;
-        }
-
-        .reset-btn:enabled {
-            background: #28a745;
-        }
-
-        .reset-btn:enabled:hover {
-            background: #218838;
-        }
-
-        .copy-btn {
-            background: #007bff;
-            color: white;
-        }
-
-        .copy-btn:hover {
-            background: #0056b3;
-        }
-
-        .reset-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .connection-section {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        .game-id-input {
-            flex: 1;
-            padding: 12px;
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
-            font-size: 16px;
-        }
-
-        .join-btn {
-            background: #28a745;
-            color: white;
-            padding: 12px 24px;
-        }
-
-        .join-btn:hover {
-            background: #218838;
-        }
-
-        /* Loading overlay */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.8);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            color: white;
-        }
-
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .hidden {
-            display: none;
-        }
-    </style>
-</head>
-<body>
-    <div class="container desktop">
-        <div class="video-section">
-            <div class="video-container">
-                <video id="localVideo" autoplay playsinline muted></video>
-                <div class="video-label">Sua Câmera</div>
-                <div class="video-controls">
-                    <button id="toggleCamera" class="control-btn">📷</button>
-                    <button id="toggleMic" class="control-btn">🎤</button>
-                </div>
-            </div>
-            <div class="video-container">
-                <video id="remoteVideo" autoplay playsinline></video>
-                <div class="video-label">Jogador Mobile</div>
-            </div>
-        </div>
-
-        <div class="game-section">
-            <div class="game-header">
-                <h2>Jogo da Velha</h2>
-                <div class="game-status" id="gameStatus">Aguardando jogador...</div>
-                <div class="game-id" id="gameIdDisplay"></div>
-            </div>
-
-            <div class="board" id="board"></div>
-
-            <div class="game-controls">
-                <button id="resetGame" class="reset-btn" disabled>Reiniciar Jogo</button>
-                <button id="copyGameId" class="copy-btn">Copiar ID do Jogo</button>
-            </div>
-
-            <div class="connection-section">
-                <input type="text" id="gameIdInput" placeholder="Digite o ID do jogo" class="game-id-input">
-                <button id="joinGame" class="join-btn">Conectar</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="loadingOverlay" class="loading-overlay">
-        <div class="loading-spinner"></div>
-        <div id="loadingMessage">Solicitando permissão da câmera...</div>
-    </div>
-
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        // Configuração do Socket.IO
-        const socket = io();
-        
-        // Elementos DOM
-        const localVideo = document.getElementById('localVideo');
-        const remoteVideo = document.getElementById('remoteVideo');
-        const boardElement = document.getElementById('board');
-        const gameStatus = document.getElementById('gameStatus');
-        const gameIdDisplay = document.getElementById('gameIdDisplay');
-        const resetBtn = document.getElementById('resetGame');
-        const copyBtn = document.getElementById('copyGameId');
-        const joinBtn = document.getElementById('joinGame');
-        const gameIdInput = document.getElementById('gameIdInput');
-        const toggleCameraBtn = document.getElementById('toggleCamera');
-        const toggleMicBtn = document.getElementById('toggleMic');
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        const loadingMessage = document.getElementById('loadingMessage');
-
-        // Variáveis globais
-        let gameId = null;
-        let board = Array(9).fill(null);
-        let currentPlayer = 'X';
-        let mySymbol = null;
-        let gameActive = false;
-        let localStream = null;
-        let peerConnection = null;
-        let cameraEnabled = true;
-        let micEnabled = true;
-
-        // Configuração STUN para WebRTC
-        const configuration = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-        };
-
-        // Inicialização
-        createBoard();
-
-        // Iniciar câmera
-        startCamera();
-
-        // Criar tabuleiro
-        function createBoard() {
-            boardElement.innerHTML = '';
-            for (let i = 0; i < 9; i++) {
-                const cell = document.createElement('div');
-                cell.className = 'cell';
-                cell.dataset.index = i;
-                cell.addEventListener('click', () => makeMove(i));
-                boardElement.appendChild(cell);
-            }
-        }
-
-        // Iniciar câmera
-        async function startCamera() {
-            try {
-                loadingOverlay.classList.remove('hidden');
-                
-                const constraints = {
-                    video: true,
-                    audio: true
-                };
-                
-                localStream = await navigator.mediaDevices.getUserMedia(constraints);
-                localVideo.srcObject = localStream;
-                
-                // Desabilitar áudio inicialmente se necessário
-                localStream.getAudioTracks().forEach(track => {
-                    track.enabled = micEnabled;
-                });
-                
-                loadingOverlay.classList.add('hidden');
-                
-            } catch (error) {
-                console.error('Erro ao acessar câmera:', error);
-                loadingMessage.textContent = 'Erro ao acessar câmera. Verifique as permissões.';
-                setTimeout(() => loadingOverlay.classList.add('hidden'), 3000);
-            }
-        }
-
-        // Criar conexão WebRTC
-        function createPeerConnection() {
-            peerConnection = new RTCPeerConnection(configuration);
-
-            // Adicionar tracks locais
-            localStream.getTracks().forEach(track => {
-                peerConnection.addTrack(track, localStream);
-            });
-
-            // Receber tracks remotas
-            peerConnection.ontrack = (event) => {
-                if (remoteVideo.srcObject !== event.streams[0]) {
-                    remoteVideo.srcObject = event.streams[0];
-                }
-            };
-
-            // ICE candidates
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    socket.emit('ice-candidate', {
-                        target: getOtherPlayerId(),
-                        candidate: event.candidate
-                    });
-                }
-            };
-
-            // Negociação necessária
-            peerConnection.onnegotiationneeded = async () => {
-                try {
-                    const offer = await peerConnection.createOffer();
-                    await peerConnection.setLocalDescription(offer);
-                    
-                    socket.emit('offer', {
-                        target: getOtherPlayerId(),
-                        offer: peerConnection.localDescription
-                    });
-                } catch (error) {
-                    console.error('Erro na negociação:', error);
-                }
-            };
-        }
-
-        // Obter ID do outro jogador
-        function getOtherPlayerId() {
-            // Esta função será implementada quando o servidor enviar os jogadores
-            return null;
-        }
-
-        // Fazer movimento
-        function makeMove(position) {
-            if (!gameActive || mySymbol !== currentPlayer || board[position]) return;
-
-            socket.emit('make-move', {
-                position: position
-            });
-        }
-
-        // Atualizar tabuleiro
-        function updateBoard(newBoard) {
-            board = newBoard;
-            const cells = document.querySelectorAll('.cell');
-            cells.forEach((cell, index) => {
-                cell.textContent = board[index] || '';
-                cell.className = 'cell';
-                if (board[index]) {
-                    cell.classList.add(board[index].toLowerCase());
-                }
-            });
-        }
-
-        // Entrar no jogo
-        function joinGame(id) {
-            gameId = id;
-            gameIdDisplay.textContent = \`ID: \${gameId}\`;
-            
-            socket.emit('join-game', {
-                gameId: gameId,
-                deviceType: 'desktop'
-            });
-            
-            // Criar peer connection após entrar no jogo
-            createPeerConnection();
-        }
-
-        // Eventos do Socket.IO
-        socket.on('player-joined', (data) => {
-            mySymbol = data.yourSymbol;
-            updateBoard(data.board);
-            currentPlayer = data.currentPlayer;
-            gameActive = true;
-            resetBtn.disabled = false;
-            
-            gameStatus.textContent = \`Conectado! Você é \${mySymbol}\`;
-            
-            // Iniciar negociação WebRTC se for o segundo jogador
-            if (data.players.length === 2 && mySymbol === 'X') {
-                peerConnection.onnegotiationneeded();
-            }
-        });
-
-        socket.on('game-start', (data) => {
-            gameActive = true;
-            gameStatus.textContent = 'Jogo iniciado! Aguardando sua vez';
-        });
-
-        socket.on('move-made', (data) => {
-            updateBoard(data.board);
-            currentPlayer = data.currentPlayer;
-            
-            if (mySymbol === currentPlayer) {
-                gameStatus.textContent = 'Sua vez';
-            } else {
-                gameStatus.textContent = 'Vez do oponente';
-            }
-        });
-
-        socket.on('game-over', (data) => {
-            gameActive = false;
-            
-            if (data.winner === 'draw') {
-                gameStatus.textContent = 'Empate!';
-            } else if (data.winner === mySymbol) {
-                gameStatus.textContent = 'Você venceu! 🎉';
-                
-                // Destacar linha vencedora
-                const winPatterns = [
-                    [0,1,2], [3,4,5], [6,7,8],
-                    [0,3,6], [1,4,7], [2,5,8],
-                    [0,4,8], [2,4,6]
-                ];
-                
-                for (let pattern of winPatterns) {
-                    const [a,b,c] = pattern;
-                    if (data.board[a] && data.board[a] === data.board[b] && data.board[a] === data.board[c]) {
-                        const cells = document.querySelectorAll('.cell');
-                        cells[a].classList.add('winning');
-                        cells[b].classList.add('winning');
-                        cells[c].classList.add('winning');
-                        break;
-                    }
-                }
-            } else {
-                gameStatus.textContent = 'Você perdeu! 😢';
-            }
-            
-            updateBoard(data.board);
-        });
-
-        socket.on('game-reset', (data) => {
-            updateBoard(data.board);
-            currentPlayer = data.currentPlayer;
-            gameActive = true;
-            
-            if (mySymbol === currentPlayer) {
-                gameStatus.textContent = 'Sua vez';
-            } else {
-                gameStatus.textContent = 'Vez do oponente';
-            }
-        });
-
-        socket.on('player-disconnected', () => {
-            gameActive = false;
-            resetBtn.disabled = true;
-            gameStatus.textContent = 'Oponente desconectado';
-        });
-
-        // WebRTC Signaling
-        socket.on('offer', async (data) => {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            
-            socket.emit('answer', {
-                target: data.sender,
-                answer: peerConnection.localDescription
-            });
-        });
-
-        socket.on('answer', async (data) => {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-        });
-
-        socket.on('ice-candidate', async (data) => {
-            try {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-            } catch (error) {
-                console.error('Erro ao adicionar ICE candidate:', error);
-            }
-        });
-
-        // Controles
-        resetBtn.addEventListener('click', () => {
-            socket.emit('reset-game');
-        });
-
-        copyBtn.addEventListener('click', () => {
-            if (gameId) {
-                navigator.clipboard.writeText(gameId);
-                alert('ID copiado para a área de transferência!');
-            }
-        });
-
-        joinBtn.addEventListener('click', () => {
-            const id = gameIdInput.value.trim().toUpperCase();
-            if (id) {
-                joinGame(id);
-                gameIdInput.disabled = true;
-                joinBtn.disabled = true;
-            }
-        });
-
-        toggleCameraBtn.addEventListener('click', () => {
-            cameraEnabled = !cameraEnabled;
-            localStream.getVideoTracks().forEach(track => {
-                track.enabled = cameraEnabled;
-            });
-            toggleCameraBtn.textContent = cameraEnabled ? '📷' : '🚫';
-        });
-
-        toggleMicBtn.addEventListener('click', () => {
-            micEnabled = !micEnabled;
-            localStream.getAudioTracks().forEach(track => {
-                track.enabled = micEnabled;
-            });
-            toggleMicBtn.textContent = micEnabled ? '🎤' : '🔇';
-        });
-    </script>
-</body>
-</html>`;
-
-// Rotas
-app.get('/', (req, res) => {
-    const userAgent = req.headers['user-agent'].toLowerCase();
-    if (/mobile|android|iphone|ipad|phone/i.test(userAgent)) {
-        res.send(mobileHTML);
-    } else {
-        res.send(desktopHTML);
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jogo da Velha com Câmera</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; background:#000; color:#fff; overflow:hidden; }
+    #remote-video {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      object-fit: cover; z-index: -1; filter: brightness(0.85);
     }
-});
+    #local-video {
+      position: fixed; bottom: 20px; right: 20px;
+      width: 140px; height: 140px; object-fit: cover;
+      border: 4px solid #fff; border-radius: 15px;
+      box-shadow: 0 0 20px rgba(0,255,255,0.5); z-index: 10;
+    }
+    #game-container {
+      position: relative; z-index: 2; height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center;
+    }
+    #board {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      width: 320px; height: 320px; gap: 12px;
+      background: rgba(0,0,0,0.6); padding: 15px; border-radius: 20px;
+    }
+    .cell {
+      background: rgba(255,255,255,0.15); font-size: 90px; font-weight: bold;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; border-radius: 15px; transition: all 0.2s;
+    }
+    .cell.x { color: #ff3366; }
+    .cell.o { color: #33ff99; }
+    .cell:hover { background: rgba(255,255,255,0.3); }
+    #status { margin-bottom: 15px; font-size: 1.4rem; }
+    #turn { font-size: 1.3rem; margin: 15px 0; }
+    .buttons button {
+      margin: 8px; padding: 12px 20px; font-size: 1rem;
+      border: none; border-radius: 50px; background: #00ccff; color: #000; cursor: pointer;
+    }
+    @media (max-width: 600px) {
+      #board { width: 90vw; height: 90vw; }
+      #local-video { width: 100px; height: 100px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="join-screen">
+    <h1>🎮 Jogo da Velha com Vídeo</h1>
+    <input id="room-code" placeholder="Código da sala (ex: abc123)" maxlength="10">
+    <button onclick="joinRoom()">ENTRAR NA SALA</button>
+    <p>Compartilhe o código com a outra pessoa!</p>
+  </div>
 
-app.get('/mobile', (req, res) => {
-    res.send(mobileHTML);
-});
+  <div id="game-screen" class="hidden">
+    <video id="remote-video" autoplay playsinline></video>
+    <video id="local-video" autoplay playsinline muted></video>
 
-app.get('/desktop', (req, res) => {
-    res.send(desktopHTML);
-});
+    <div id="game-container">
+      <h2 id="status">Aguardando oponente...</h2>
+      <div id="board"></div>
+      <p id="turn">Você é: <span id="my-symbol"></span></p>
+      
+      <div class="buttons">
+        <button onclick="switchCamera()">📷 Trocar Câmera</button>
+        <button onclick="toggleMute()">🎤 Mutar Áudio</button>
+        <button onclick="leaveRoom()">Sair</button>
+      </div>
+    </div>
+  </div>
 
-// Gerenciamento de jogos
-const games = new Map();
-const users = new Map();
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    let socket, roomCode, mySymbol, board = Array(9).fill(null);
+    let peerConnection, localStream;
+    let currentPlayer = 'X';
+    const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+    const remoteVideo = document.getElementById('remote-video');
+    const localVideo = document.getElementById('local-video');
+
+    async function joinRoom() {
+      const code = document.getElementById('room-code').value.trim().toUpperCase();
+      if (!code) return alert('Digite um código!');
+      roomCode = code;
+      socket = io();
+      socket.emit('join-room', roomCode);
+      setupListeners();
+      document.getElementById('join-screen').classList.add('hidden');
+      document.getElementById('game-screen').classList.remove('hidden');
+      createBoard();
+    }
+
+    function setupListeners() {
+      socket.on('role', data => { mySymbol = data.symbol; document.getElementById('my-symbol').textContent = mySymbol; });
+      socket.on('waiting', () => { document.getElementById('status').innerHTML = \`Aguardando...<br>Código: <b>\${roomCode}</b>\`; });
+      socket.on('game-start', () => { document.getElementById('status').textContent = 'Jogo iniciado!'; startVideoAndWebRTC(); });
+      socket.on('initiate-webrtc', () => startVideoAndWebRTC(true));
+      socket.on('move-made', data => { board = data.board; currentPlayer = data.currentPlayer; updateBoard(); checkGameEnd(); });
+      socket.on('receive-offer', async data => {
+        if (!peerConnection) await createPeer();
+        await peerConnection.setRemoteDescription(data.sdp);
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        socket.emit('answer', { sdp: answer, roomCode });
+      });
+      socket.on('receive-answer', data => { peerConnection.setRemoteDescription(data.sdp); });
+      socket.on('ice-candidate', data => { if (peerConnection) peerConnection.addIceCandidate(data.candidate); });
+      socket.on('opponent-left', () => alert('Oponente saiu da sala!'));
+      socket.on('room-full', () => alert('Sala cheia! Tente outro código.'));
+    }
+
+    async function startVideoAndWebRTC(isInitiator = false) {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+        localVideo.srcObject = localStream;
+        await createPeer();
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+        if (isInitiator) {
+          const offer = await peerConnection.createOffer();
+          await peerConnection.setLocalDescription(offer);
+          socket.emit('offer', { sdp: offer, roomCode });
+        }
+      } catch (e) { alert('Não foi possível acessar câmera/microfone. Verifique as permissões.'); }
+    }
+
+    async function createPeer() {
+      peerConnection = new RTCPeerConnection(config);
+      peerConnection.onicecandidate = e => { if (e.candidate) socket.emit('ice-candidate', { candidate: e.candidate, roomCode }); };
+      peerConnection.ontrack = e => { remoteVideo.srcObject = e.streams[0]; };
+    }
+
+    function createBoard() {
+      const boardEl = document.getElementById('board');
+      boardEl.innerHTML = '';
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+        cell.dataset.index = i;
+        cell.onclick = () => makeMove(i);
+        boardEl.appendChild(cell);
+      }
+    }
+
+    function updateBoard() {
+      document.querySelectorAll('.cell').forEach((cell, i) => {
+        cell.textContent = board[i] || '';
+        cell.className = 'cell';
+        if (board[i]) cell.classList.add(board[i].toLowerCase());
+      });
+    }
+
+    function makeMove(index) {
+      if (board[index] || currentPlayer !== mySymbol) return;
+      socket.emit('make-move', { index, symbol: mySymbol, roomCode });
+    }
+
+    function checkGameEnd() {
+      const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+      for (let [a,b,c] of wins) {
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+          alert(\`🎉 Vitória do \${board[a]}!\`);
+          return;
+        }
+      }
+      if (!board.includes(null)) alert('Empate!');
+    }
+
+    async function switchCamera() {
+      if (!localStream) return;
+      const newMode = localStream.getVideoTracks()[0].getSettings().facingMode === 'user' ? 'environment' : 'user';
+      const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: newMode }, audio: true });
+      localStream.getTracks().forEach(t => t.stop());
+      localStream = newStream;
+      localVideo.srcObject = newStream;
+      const videoSender = peerConnection.getSenders().find(s => s.track?.kind === 'video');
+      if (videoSender) videoSender.replaceTrack(newStream.getVideoTracks()[0]);
+    }
+
+    function toggleMute() {
+      if (localStream) {
+        const audio = localStream.getAudioTracks()[0];
+        audio.enabled = !audio.enabled;
+      }
+    }
+
+    function leaveRoom() {
+      if (peerConnection) peerConnection.close();
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      socket.disconnect();
+      location.reload();
+    }
+
+    window.onload = () => {};
+  </script>
+</body>
+</html>
+`;
+// ====================== FIM DO HTML INLINE ======================
+
+app.get('/', (req, res) => res.send(fullHTML));
+
+const gameRooms = {}; // já declarado acima, mas ok
 
 io.on('connection', (socket) => {
-    console.log('Novo usuário conectado:', socket.id);
+  console.log('Conectado:', socket.id);
 
-    socket.on('join-game', (data) => {
-        const { gameId, deviceType } = data;
-        
-        if (!games.has(gameId)) {
-            games.set(gameId, {
-                players: [],
-                board: Array(9).fill(null),
-                currentPlayer: 'X',
-                gameActive: true
-            });
-        }
+  socket.on('join-room', (roomCode) => {
+    socket.roomCode = roomCode;
+    socket.join(roomCode);
 
-        const game = games.get(gameId);
-        
-        if (game.players.length < 2) {
-            game.players.push({
-                id: socket.id,
-                deviceType,
-                symbol: game.players.length === 0 ? 'X' : 'O'
-            });
-            
-            users.set(socket.id, { gameId, deviceType });
-            socket.join(gameId);
-            
-            io.to(gameId).emit('player-joined', {
-                players: game.players,
-                board: game.board,
-                currentPlayer: game.currentPlayer,
-                yourSymbol: game.players.find(p => p.id === socket.id)?.symbol
-            });
-            
-            if (game.players.length === 2) {
-                io.to(gameId).emit('game-start', {
-                    message: 'Jogo iniciado! X começa.',
-                    board: game.board
-                });
-            }
-        }
-    });
-
-    // WebRTC Signaling
-    socket.on('offer', (data) => {
-        socket.to(data.target).emit('offer', {
-            offer: data.offer,
-            sender: socket.id
-        });
-    });
-
-    socket.on('answer', (data) => {
-        socket.to(data.target).emit('answer', {
-            answer: data.answer,
-            sender: socket.id
-        });
-    });
-
-    socket.on('ice-candidate', (data) => {
-        socket.to(data.target).emit('ice-candidate', {
-            candidate: data.candidate,
-            sender: socket.id
-        });
-    });
-
-    // Movimentos do jogo
-    socket.on('make-move', (data) => {
-        const user = users.get(socket.id);
-        if (!user) return;
-
-        const game = games.get(user.gameId);
-        if (!game) return;
-
-        const player = game.players.find(p => p.id === socket.id);
-        if (!player || player.symbol !== game.currentPlayer || !game.gameActive) return;
-
-        if (data.position >= 0 && data.position < 9 && !game.board[data.position]) {
-            game.board[data.position] = player.symbol;
-            
-            // Verificar vencedor
-            const winner = checkWinner(game.board);
-            const isDraw = !game.board.includes(null) && !winner;
-            
-            if (winner) {
-                game.gameActive = false;
-                io.to(user.gameId).emit('game-over', {
-                    winner: player.symbol,
-                    board: game.board
-                });
-            } else if (isDraw) {
-                game.gameActive = false;
-                io.to(user.gameId).emit('game-over', {
-                    winner: 'draw',
-                    board: game.board
-                });
-            } else {
-                game.currentPlayer = game.currentPlayer === 'X' ? 'O' : 'X';
-                io.to(user.gameId).emit('move-made', {
-                    position: data.position,
-                    symbol: player.symbol,
-                    board: game.board,
-                    currentPlayer: game.currentPlayer
-                });
-            }
-        }
-    });
-
-    socket.on('reset-game', (data) => {
-        const user = users.get(socket.id);
-        if (!user) return;
-
-        const game = games.get(user.gameId);
-        if (game) {
-            game.board = Array(9).fill(null);
-            game.currentPlayer = 'X';
-            game.gameActive = true;
-            
-            io.to(user.gameId).emit('game-reset', {
-                board: game.board,
-                currentPlayer: game.currentPlayer
-            });
-        }
-    });
-
-    socket.on('disconnect', () => {
-        const user = users.get(socket.id);
-        if (user) {
-            const game = games.get(user.gameId);
-            if (game) {
-                io.to(user.gameId).emit('player-disconnected', {
-                    playerId: socket.id
-                });
-                
-                // Limpar jogo se não houver jogadores
-                if (game.players.length <= 1) {
-                    games.delete(user.gameId);
-                } else {
-                    game.players = game.players.filter(p => p.id !== socket.id);
-                }
-            }
-            users.delete(socket.id);
-        }
-        console.log('Usuário desconectado:', socket.id);
-    });
-});
-
-function checkWinner(board) {
-    const winPatterns = [
-        [0, 1, 2], [3, 4, 5], [6, 7, 8],
-        [0, 3, 6], [1, 4, 7], [2, 5, 8],
-        [0, 4, 8], [2, 4, 6]
-    ];
-
-    for (let pattern of winPatterns) {
-        const [a, b, c] = pattern;
-        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-            return board[a];
-        }
+    if (!gameRooms[roomCode]) {
+      gameRooms[roomCode] = { board: Array(9).fill(null), currentPlayer: 'X', host: socket.id };
+      socket.emit('role', { symbol: 'X' });
+      socket.emit('waiting', roomCode);
+    } else {
+      if (Object.keys(io.sockets.adapter.rooms.get(roomCode) || {}).length >= 3) return socket.emit('room-full');
+      gameRooms[roomCode].guest = socket.id;
+      socket.emit('role', { symbol: 'O' });
+      io.to(roomCode).emit('game-start');
+      socket.emit('initiate-webrtc');
     }
-    return null;
-}
+  });
+
+  socket.on('make-move', (data) => {
+    const room = gameRooms[data.roomCode];
+    if (!room || room.board[data.index] || room.currentPlayer !== data.symbol) return;
+    room.board[data.index] = data.symbol;
+    room.currentPlayer = data.symbol === 'X' ? 'O' : 'X';
+    io.to(data.roomCode).emit('move-made', { board: room.board, currentPlayer: room.currentPlayer });
+  });
+
+  socket.on('offer', (data) => socket.to(data.roomCode).emit('receive-offer', data));
+  socket.on('answer', (data) => socket.to(data.roomCode).emit('receive-answer', data));
+  socket.on('ice-candidate', (data) => socket.to(data.roomCode).emit('ice-candidate', data));
+
+  socket.on('disconnect', () => {
+    if (socket.roomCode && gameRooms[socket.roomCode]) {
+      io.to(socket.roomCode).emit('opponent-left');
+      delete gameRooms[socket.roomCode];
+    }
+  });
+});
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(\`Servidor rodando na porta \${PORT}\`);
-    console.log(\`Acesse: http://localhost:\${PORT}\`);
-});
+httpServer.listen(PORT, () => console.log(`🚀 Servidor rodando na porta ${PORT}`));
