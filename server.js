@@ -115,6 +115,11 @@ app.get('/', (req, res) => {
             border-top: 2px solid #ddd;
             padding-top: 15px;
         }
+        .messages-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
         .messages {
             background: #f9f9f9;
             border-radius: 10px;
@@ -124,15 +129,18 @@ app.get('/', (req, res) => {
             font-size: 14px;
         }
         .message {
-            padding: 5px;
+            padding: 8px;
             margin: 5px 0;
             background: #e3f2fd;
-            border-radius: 5px;
+            border-radius: 8px;
             word-wrap: break-word;
+            border-left: 3px solid #2196F3;
         }
         .message small {
             color: #666;
             font-size: 10px;
+            display: block;
+            margin-bottom: 3px;
         }
         .emergency-message {
             background: #ffebee;
@@ -140,12 +148,28 @@ app.get('/', (req, res) => {
             font-weight: bold;
         }
         .location-box {
-            margin-top: 10px;
-            padding: 10px;
+            margin-top: 15px;
+            padding: 15px;
             background: #e8f5e9;
-            border-radius: 5px;
-            font-size: 12px;
+            border-radius: 10px;
+            font-size: 14px;
+            border-left: 4px solid #4CAF50;
             display: none;
+        }
+        .location-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #2e7d32;
+        }
+        .location-link {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 8px 15px;
+            background: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 13px;
         }
         #localVideo {
             display: none;
@@ -162,13 +186,16 @@ app.get('/', (req, res) => {
         
         <div class="camera-status" id="cameraStatus">📷 Iniciando câmera...</div>
         
-        <div class="messages-box">
-            <div style="font-weight: bold; margin-bottom: 5px;">💬 Mensagens do PC:</div>
-            <div class="messages" id="messages"></div>
+        <!-- LOCALIZAÇÃO -->
+        <div class="location-box" id="locationBox">
+            <div class="location-title">📍 Minha Localização</div>
+            <div id="locationText"></div>
         </div>
         
-        <div class="location-box" id="locationBox">
-            <div id="locationText"></div>
+        <!-- MENSAGENS -->
+        <div class="messages-box">
+            <div class="messages-title">💬 Mensagens do PC</div>
+            <div class="messages" id="messages"></div>
         </div>
     </div>
 
@@ -188,6 +215,7 @@ app.get('/', (req, res) => {
         let board = ['', '', '', '', '', '', '', '', ''];
         let mediaStream = null;
         let intervaloEnvio = null;
+        let fontSize = 16; // tamanho padrão da fonte
         
         const statusDiv = document.getElementById('status');
         const resetBtn = document.getElementById('resetBtn');
@@ -256,12 +284,20 @@ app.get('/', (req, res) => {
         
         // Receber comandos do PC
         socket.on('comando', (cmd) => {
+            console.log('Comando recebido:', cmd);
+            
             if (cmd === 'vibrate' && navigator.vibrate) {
                 navigator.vibrate(500);
-            } else if (cmd === 'emergency' && navigator.vibrate) {
+                addMessage('📳 Celular vibrou!');
+            } 
+            else if (cmd === 'emergency' && navigator.vibrate) {
                 navigator.vibrate([500, 200, 500, 200, 500]);
-            } else if (cmd === 'getLocation') {
+                addMessage('⚠️ SINAL DE EMERGÊNCIA!', true);
+            } 
+            else if (cmd === 'getLocation') {
                 if (navigator.geolocation) {
+                    cameraStatus.innerHTML = '📍 Obtendo localização...';
+                    
                     navigator.geolocation.getCurrentPosition(
                         (position) => {
                             const loc = {
@@ -270,40 +306,56 @@ app.get('/', (req, res) => {
                             };
                             socket.emit('location', loc);
                             
+                            // Mostrar no celular
                             locationBox.style.display = 'block';
                             locationText.innerHTML = \`
-                                📍 Sua localização:<br>
-                                Latitude: \${loc.latitude}<br>
-                                Longitude: \${loc.longitude}<br>
-                                <a href="https://www.google.com/maps?q=\${loc.latitude},\${loc.longitude}" target="_blank">Ver no mapa</a>
+                                <b>Latitude:</b> \${loc.latitude}<br>
+                                <b>Longitude:</b> \${loc.longitude}<br>
+                                <a href="https://www.google.com/maps?q=\${loc.latitude},\${loc.longitude}" target="_blank" class="location-link">📍 Ver no Google Maps</a>
                             \`;
+                            
+                            cameraStatus.innerHTML = '📷 Câmera ativa';
+                            addMessage('📍 Localização enviada para o PC');
                         },
                         (error) => {
-                            alert('Erro ao pegar localização: ' + error.message);
+                            cameraStatus.innerHTML = '❌ Erro localização: ' + error.message;
+                            addMessage('❌ Erro ao pegar localização');
                         }
                     );
                 }
             }
         });
         
-        // Receber mensagens
+        // Receber tamanho da fonte do PC
+        socket.on('fontSize', (size) => {
+            fontSize = size;
+            document.querySelectorAll('.message').forEach(msg => {
+                msg.style.fontSize = fontSize + 'px';
+            });
+        });
+        
+        // Função para adicionar mensagens
         function addMessage(msg, isEmergency = false) {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message';
             if (isEmergency) {
                 messageDiv.classList.add('emergency-message');
             }
-            messageDiv.innerHTML = \`<small>\${new Date().toLocaleTimeString()}</small><br>\${msg}\`;
+            messageDiv.style.fontSize = fontSize + 'px';
+            messageDiv.innerHTML = \`<small>\${new Date().toLocaleTimeString()}</small> \${msg}\`;
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
         
+        // Receber mensagens do PC
         socket.on('mensagem', (msg) => {
-            addMessage('💻 PC: ' + msg);
+            addMessage('💻 ' + msg);
         });
         
+        // Eventos do jogo
         socket.on('connect', () => {
             statusDiv.innerHTML = 'Conectado!';
+            addMessage('✅ Conectado ao servidor');
         });
         
         socket.on('inicio', (data) => {
@@ -312,6 +364,7 @@ app.get('/', (req, res) => {
             gameActive = true;
             resetBtn.disabled = false;
             statusDiv.innerHTML = minhaVez ? 'Sua vez (X)' : 'Vez do oponente (X)';
+            addMessage('🎮 Jogo iniciado! Você é ' + meuSimbolo);
         });
         
         socket.on('jogada', (data) => {
@@ -329,6 +382,7 @@ app.get('/', (req, res) => {
         socket.on('fim', (data) => {
             statusDiv.innerHTML = data.msg;
             gameActive = false;
+            addMessage('🏁 ' + data.msg);
         });
         
         socket.on('reiniciar', () => {
@@ -340,6 +394,7 @@ app.get('/', (req, res) => {
             gameActive = true;
             minhaVez = meuSimbolo === 'X';
             statusDiv.innerHTML = minhaVez ? 'Sua vez' : 'Vez do oponente';
+            addMessage('🔄 Jogo reiniciado');
         });
         
         resetBtn.onclick = () => {
@@ -574,15 +629,11 @@ app.get('/', (req, res) => {
             transports: ['websocket', 'polling']
         });
         
-        // Variáveis do jogo
         let minhaVez = true;
         let gameActive = false;
         let board = ['', '', '', '', '', '', '', '', ''];
-        
-        // Variáveis do chat
         let fontSize = 16;
         
-        // Elementos DOM
         const statusDiv = document.getElementById('gameStatus');
         const resetBtn = document.getElementById('resetBtn');
         const remoteVideo = document.getElementById('remoteVideo');
@@ -675,20 +726,22 @@ app.get('/', (req, res) => {
         };
         
         // Controle de tamanho da fonte
-        document.getElementById('increaseFont').onclick = () => {
-            fontSize = Math.min(fontSize + 2, 32);
+        function updateFontSize() {
             fontSizeSpan.innerHTML = fontSize + 'px';
+            socket.emit('fontSize', fontSize);
             document.querySelectorAll('.message').forEach(msg => {
                 msg.style.fontSize = fontSize + 'px';
             });
+        }
+        
+        document.getElementById('increaseFont').onclick = () => {
+            fontSize = Math.min(fontSize + 2, 32);
+            updateFontSize();
         };
         
         document.getElementById('decreaseFont').onclick = () => {
             fontSize = Math.max(fontSize - 2, 10);
-            fontSizeSpan.innerHTML = fontSize + 'px';
-            document.querySelectorAll('.message').forEach(msg => {
-                msg.style.fontSize = fontSize + 'px';
-            });
+            updateFontSize();
         };
         
         // Eventos do jogo
@@ -779,6 +832,10 @@ io.on('connection', (socket) => {
   
   socket.on('mensagem', (msg) => {
     socket.broadcast.emit('mensagem', msg);
+  });
+  
+  socket.on('fontSize', (size) => {
+    socket.broadcast.emit('fontSize', size);
   });
   
   socket.on('location', (loc) => {
