@@ -1,143 +1,277 @@
 const express = require('express');
 const http = require('http');
-const socketIO = require('socket.io');
+const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIO(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] }
+const io = new Server(server, {
+  cors: { origin: "*" }
 });
 
 const PORT = process.env.PORT || 3000;
 
-// HTML direto (sem pasta public)
 app.get('/', (req, res) => {
-  res.send(`
-<!DOCTYPE html>
+  const ua = req.headers['user-agent'].toLowerCase();
+  const isMobile = ua.includes('mobile') || ua.includes('android') || ua.includes('iphone');
+  
+  if (isMobile) {
+    // CELULAR
+    res.send(`<!DOCTYPE html>
 <html>
 <head>
-    <title>📷 Câmera Simples - Funcionando</title>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Jogo - Celular</title>
     <style>
-        body { font-family: Arial; text-align: center; padding: 20px; background: #000; color: #fff; }
-        .container { max-width: 900px; margin: 0 auto; background: #111; padding: 20px; border-radius: 15px; }
-        button { padding: 15px 30px; font-size: 18px; margin: 10px; border-radius: 8px; border: none; cursor: pointer; }
-        #ligar { background: #4CAF50; color: white; }
-        #desligar { background: #f44336; color: white; }
-        #foto { background: #2196F3; color: white; }
-        video, img { width: 100%; max-width: 640px; border: 3px solid #0ff; border-radius: 10px; margin: 10px 0; }
-        .status { padding: 12px; margin: 15px 0; background: #1a1a1a; border-radius: 8px; font-size: 1.1rem; }
+        body { font-family: Arial; background: #1a1a1a; color: white; text-align: center; padding: 20px; }
+        .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 300px; margin: 20px auto; }
+        .cell { background: #333; border: 2px solid #4CAF50; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 48px; cursor: pointer; }
+        .cell.x { color: #ff4444; }
+        .cell.o { color: #4444ff; }
+        .status { background: #333; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        button { padding: 15px 30px; background: #4CAF50; color: white; border: none; border-radius: 5px; font-size: 18px; width: 100%; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>📷 Câmera Simples (Celular → PC)</h1>
-        <div class="status" id="status">Status: Desligada</div>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-            <div>
-                <h3>📱 Seu Celular (Local)</h3>
-                <video id="localVideo" autoplay playsinline muted></video>
-            </div>
-            <div>
-                <h3>🖥️ PC (Remoto)</h3>
-                <img id="remoteVideo">
-            </div>
-        </div>
-        
-        <div style="margin-top: 20px;">
-            <button id="ligar">🎥 Ligar Câmera</button>
-            <button id="desligar" disabled>⏹️ Desligar</button>
-            <button id="foto" disabled>📸 Tirar Foto</button>
-        </div>
-    </div>
+    <h1>📱 Celular</h1>
+    <div class="status" id="status">Aguardando PC...</div>
+    <div class="board" id="board"></div>
+    <button onclick="reiniciar()">Reiniciar</button>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        const localVideo = document.getElementById('localVideo');
-        const remoteVideo = document.getElementById('remoteVideo');
-        const statusDiv = document.getElementById('status');
-        const ligarBtn = document.getElementById('ligar');
-        const desligarBtn = document.getElementById('desligar');
-        const fotoBtn = document.getElementById('foto');
+        let minhaVez = false;
+        let meuSimbolo = '';
         
-        let mediaStream = null;
-        let intervaloEnvio = null;
-
-        socket.on('connect', () => statusDiv.innerHTML = '✅ Conectado ao servidor - Abra no PC também');
-
-        socket.on('frame', (frameData) => {
-            remoteVideo.src = frameData;
+        // Criar tabuleiro
+        for(let i = 0; i < 9; i++) {
+            let cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.onclick = () => {
+                console.log('Célula clicada:', i, 'minhaVez:', minhaVez);
+                if(minhaVez && cell.innerHTML === '') {
+                    console.log('Enviando jogada:', i);
+                    socket.emit('jogada', i);
+                }
+            };
+            document.getElementById('board').appendChild(cell);
+        }
+        
+        socket.on('connect', () => {
+            console.log('Conectado ao servidor');
+            document.getElementById('status').innerHTML = 'Conectado!';
         });
-
-        ligarBtn.onclick = async () => {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 640, height: 480 } 
-                });
-                
-                mediaStream = stream;
-                localVideo.srcObject = stream;
-                
-                statusDiv.innerHTML = '📤 Transmitindo para o PC...';
-                ligarBtn.disabled = true;
-                desligarBtn.disabled = false;
-                fotoBtn.disabled = false;
-                
-                const canvas = document.createElement('canvas');
-                canvas.width = 640;
-                canvas.height = 480;
-                const ctx = canvas.getContext('2d');
-                
-                intervaloEnvio = setInterval(() => {
-                    if (mediaStream?.active) {
-                        ctx.drawImage(localVideo, 0, 0, 640, 480);
-                        const frame = canvas.toDataURL('image/jpeg', 0.6);
-                        socket.emit('frame', frame);
-                    }
-                }, 180);
-                
-            } catch (err) {
-                alert('Erro ao ligar câmera: ' + err.message);
-            }
-        };
-
-        desligarBtn.onclick = () => {
-            if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
-            clearInterval(intervaloEnvio);
-            localVideo.srcObject = null;
-            statusDiv.innerHTML = '⏹️ Desligada';
-            ligarBtn.disabled = false;
-            desligarBtn.disabled = true;
-            fotoBtn.disabled = true;
-        };
-
-        fotoBtn.onclick = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = 640; canvas.height = 480;
-            canvas.getContext('2d').drawImage(localVideo, 0, 0, 640, 480);
-            const link = document.createElement('a');
-            link.download = 'foto-' + Date.now() + '.jpg';
-            link.href = canvas.toDataURL('image/jpeg', 0.95);
-            link.click();
-        };
+        
+        socket.on('inicio', (data) => {
+            console.log('Recebido inicio:', data);
+            meuSimbolo = data.simbolo;
+            minhaVez = meuSimbolo === 'X';
+            document.getElementById('status').innerHTML = minhaVez ? 'Sua vez (X)' : 'Vez do PC (X)';
+        });
+        
+        socket.on('jogada', (data) => {
+            console.log('Recebido jogada:', data);
+            let cell = document.getElementsByClassName('cell')[data.pos];
+            cell.innerHTML = data.simbolo;
+            cell.classList.add(data.simbolo.toLowerCase());
+            
+            minhaVez = data.proximaVez === meuSimbolo;
+            document.getElementById('status').innerHTML = minhaVez ? 'Sua vez' : 'Vez do PC';
+        });
+        
+        socket.on('fim', (data) => {
+            console.log('Recebido fim:', data);
+            document.getElementById('status').innerHTML = data.msg;
+        });
+        
+        socket.on('reiniciar', () => {
+            console.log('Recebido reiniciar');
+            document.querySelectorAll('.cell').forEach(c => {
+                c.innerHTML = '';
+                c.classList.remove('x', 'o');
+            });
+            minhaVez = meuSimbolo === 'X';
+            document.getElementById('status').innerHTML = minhaVez ? 'Sua vez' : 'Vez do PC';
+        });
+        
+        function reiniciar() {
+            console.log('Botão reiniciar clicado');
+            socket.emit('reiniciar');
+        }
     </script>
 </body>
-</html>
-  `);
+</html>`);
+  } else {
+    // PC
+    res.send(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Jogo - PC</title>
+    <style>
+        body { font-family: Arial; background: #1a1a1a; color: white; text-align: center; padding: 20px; }
+        .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 300px; margin: 20px auto; }
+        .cell { background: #333; border: 2px solid #4CAF50; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 48px; cursor: pointer; }
+        .cell.x { color: #ff4444; }
+        .cell.o { color: #4444ff; }
+        .status { background: #333; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        button { padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>💻 PC</h1>
+    <div class="status" id="status">Aguardando celular...</div>
+    <div class="board" id="board"></div>
+    <button onclick="reiniciar()">Reiniciar</button>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let minhaVez = true;
+        let meuSimbolo = 'X';
+        
+        // Criar tabuleiro
+        for(let i = 0; i < 9; i++) {
+            let cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.onclick = () => {
+                console.log('Célula clicada:', i, 'minhaVez:', minhaVez);
+                if(minhaVez && cell.innerHTML === '') {
+                    console.log('Enviando jogada:', i);
+                    socket.emit('jogada', i);
+                }
+            };
+            document.getElementById('board').appendChild(cell);
+        }
+        
+        socket.on('connect', () => {
+            console.log('Conectado ao servidor');
+            document.getElementById('status').innerHTML = 'Conectado!';
+        });
+        
+        socket.on('inicio', () => {
+            console.log('Recebido inicio');
+            document.getElementById('status').innerHTML = 'Sua vez (X)';
+        });
+        
+        socket.on('jogada', (data) => {
+            console.log('Recebido jogada:', data);
+            let cell = document.getElementsByClassName('cell')[data.pos];
+            cell.innerHTML = data.simbolo;
+            cell.classList.add(data.simbolo.toLowerCase());
+            
+            minhaVez = data.proximaVez === 'X';
+            document.getElementById('status').innerHTML = minhaVez ? 'Sua vez' : 'Vez do celular';
+        });
+        
+        socket.on('fim', (data) => {
+            console.log('Recebido fim:', data);
+            document.getElementById('status').innerHTML = data.msg;
+        });
+        
+        socket.on('reiniciar', () => {
+            console.log('Recebido reiniciar');
+            document.querySelectorAll('.cell').forEach(c => {
+                c.innerHTML = '';
+                c.classList.remove('x', 'o');
+            });
+            minhaVez = true;
+            document.getElementById('status').innerHTML = 'Sua vez';
+        });
+        
+        function reiniciar() {
+            console.log('Botão reiniciar clicado');
+            socket.emit('reiniciar');
+        }
+    </script>
+</body>
+</html>`);
+  }
 });
 
-// Broadcast dos frames
+// Lógica do jogo
+let board = ['', '', '', '', '', '', '', '', ''];
+let vez = 'X';
+let pc = null;
+let mobile = null;
+
+function checkWinner() {
+  const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  for(let l of lines) {
+    if(board[l[0]] && board[l[0]] === board[l[1]] && board[l[0]] === board[l[2]]) {
+      return board[l[0]];
+    }
+  }
+  return null;
+}
+
 io.on('connection', (socket) => {
   console.log('Cliente conectado:', socket.id);
   
-  socket.on('frame', (frameData) => {
-    socket.broadcast.emit('frame', frameData);
+  // Atribuir jogadores
+  if (!pc) {
+    pc = socket.id;
+    socket.emit('inicio', { simbolo: 'X' });
+    console.log('PC definido');
+  } else if (!mobile) {
+    mobile = socket.id;
+    socket.emit('inicio', { simbolo: 'O' });
+    console.log('Celular definido');
+  }
+  
+  socket.on('jogada', (pos) => {
+    console.log('Jogada recebida de', socket.id, 'posição', pos);
+    
+    let jogador = socket.id === pc ? 'X' : 'O';
+    console.log('Jogador:', jogador, 'Vez atual:', vez);
+    
+    if (jogador !== vez) {
+      console.log('Não é a vez do jogador');
+      return;
+    }
+    if (board[pos] !== '') {
+      console.log('Posição já ocupada');
+      return;
+    }
+    
+    board[pos] = jogador;
+    console.log('Board atualizado:', board);
+    
+    let winner = checkWinner();
+    let proximaVez = vez === 'X' ? 'O' : 'X';
+    
+    if (winner) {
+      console.log('Vencedor:', winner);
+      io.emit('fim', { msg: winner + ' venceu!' });
+    } else if (!board.includes('')) {
+      console.log('Empate');
+      io.emit('fim', { msg: 'Empate!' });
+    } else {
+      vez = proximaVez;
+      console.log('Próxima vez:', vez);
+    }
+    
+    io.emit('jogada', { pos, simbolo: jogador, proximaVez });
+  });
+  
+  socket.on('reiniciar', () => {
+    console.log('Reiniciar recebido');
+    board = ['', '', '', '', '', '', '', '', ''];
+    vez = 'X';
+    io.emit('reiniciar');
+  });
+  
+  socket.on('disconnect', () => {
+    console.log('Cliente desconectado:', socket.id);
+    if (socket.id === pc) pc = null;
+    if (socket.id === mobile) mobile = null;
+    board = ['', '', '', '', '', '', '', '', ''];
+    vez = 'X';
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT} - Abra o link no celular e no PC!`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
