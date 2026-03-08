@@ -59,8 +59,8 @@ app.get('/', (req, res) => {
             console.log(msg);
         }
         
-        addLog('Página carregada');
-        addLog('Tentando conectar a: ${fullUrl}');
+        addLog('📱 Página do celular carregada');
+        addLog('🔌 Tentando conectar a: ${fullUrl}');
         
         // Criar tabuleiro
         for(let i = 0; i < 9; i++) {
@@ -68,19 +68,21 @@ app.get('/', (req, res) => {
             cell.className = 'cell';
             cell.id = 'cell-' + i;
             cell.onclick = () => {
-                addLog('Célula ' + i + ' clicada, minhaVez=' + minhaVez);
+                addLog('👆 Célula ' + i + ' clicada, minhaVez=' + minhaVez);
                 if(minhaVez && cell.innerHTML === '') {
-                    addLog('Enviando jogada pos=' + i);
+                    addLog('📤 Enviando jogada pos=' + i);
                     socket.emit('jogada', i);
+                } else {
+                    addLog('⛔ Não pode jogar agora');
                 }
             };
             document.getElementById('board').appendChild(cell);
         }
-        addLog('Tabuleiro criado');
+        addLog('✅ Tabuleiro criado');
         
         socket.on('connect', () => {
             addLog('✅ CONECTADO! Socket ID: ' + socket.id);
-            statusDiv.innerHTML = 'Conectado ao servidor!';
+            statusDiv.innerHTML = 'Conectado!';
         });
         
         socket.on('connect_error', (err) => {
@@ -98,6 +100,7 @@ app.get('/', (req, res) => {
             meuSimbolo = data.simbolo;
             minhaVez = meuSimbolo === 'X';
             statusDiv.innerHTML = minhaVez ? 'Sua vez (X)' : 'Vez do PC (X)';
+            addLog('🎮 Você é ' + meuSimbolo + (minhaVez ? ' - sua vez' : ' - aguarde'));
         });
         
         socket.on('jogada', (data) => {
@@ -105,10 +108,12 @@ app.get('/', (req, res) => {
             let cell = document.getElementById('cell-' + data.pos);
             if(cell) {
                 cell.innerHTML = data.simbolo;
-                addLog('Célula ' + data.pos + ' atualizada');
+                cell.classList.add(data.simbolo.toLowerCase());
+                addLog('✅ Célula ' + data.pos + ' = ' + data.simbolo);
             }
             minhaVez = data.proximaVez === meuSimbolo;
             statusDiv.innerHTML = minhaVez ? 'Sua vez' : 'Vez do PC';
+            addLog('🔄 ' + (minhaVez ? 'Sua vez' : 'Vez do PC'));
         });
         
         socket.on('fim', (data) => {
@@ -124,10 +129,11 @@ app.get('/', (req, res) => {
             });
             minhaVez = meuSimbolo === 'X';
             statusDiv.innerHTML = minhaVez ? 'Sua vez' : 'Vez do PC';
+            addLog('🔄 Jogo reiniciado');
         });
         
         function reiniciar() {
-            addLog('Botão REINICIAR clicado');
+            addLog('👆 Botão REINICIAR clicado');
             socket.emit('reiniciar');
         }
     </script>
@@ -162,8 +168,8 @@ app.get('/', (req, res) => {
             transports: ['websocket', 'polling']
         });
         
-        let minhaVez = true;
-        let meuSimbolo = 'X';
+        let minhaVez = false;
+        let meuSimbolo = '';
         let logDiv = document.getElementById('log');
         let statusDiv = document.getElementById('status');
         
@@ -173,27 +179,29 @@ app.get('/', (req, res) => {
             console.log(msg);
         }
         
-        addLog('Página carregada');
-        addLog('Tentando conectar a: ${fullUrl}');
+        addLog('💻 Página do PC carregada');
+        addLog('🔌 Tentando conectar a: ${fullUrl}');
         
         for(let i = 0; i < 9; i++) {
             let cell = document.createElement('div');
             cell.className = 'cell';
             cell.id = 'cell-' + i;
             cell.onclick = () => {
-                addLog('Célula ' + i + ' clicada, minhaVez=' + minhaVez);
+                addLog('👆 Célula ' + i + ' clicada, minhaVez=' + minhaVez);
                 if(minhaVez && cell.innerHTML === '') {
-                    addLog('Enviando jogada pos=' + i);
+                    addLog('📤 Enviando jogada pos=' + i);
                     socket.emit('jogada', i);
+                } else {
+                    addLog('⛔ Não pode jogar agora');
                 }
             };
             document.getElementById('board').appendChild(cell);
         }
-        addLog('Tabuleiro criado');
+        addLog('✅ Tabuleiro criado');
         
         socket.on('connect', () => {
             addLog('✅ CONECTADO! Socket ID: ' + socket.id);
-            statusDiv.innerHTML = 'Conectado ao servidor!';
+            statusDiv.innerHTML = 'Conectado!';
         });
         
         socket.on('connect_error', (err) => {
@@ -201,9 +209,12 @@ app.get('/', (req, res) => {
             statusDiv.innerHTML = 'Erro de conexão';
         });
         
-        socket.on('inicio', () => {
-            addLog('📨 Evento INICIO');
-            statusDiv.innerHTML = 'Sua vez (X)';
+        socket.on('inicio', (data) => {
+            addLog('📨 Evento INICIO: ' + JSON.stringify(data));
+            meuSimbolo = data.simbolo;
+            minhaVez = meuSimbolo === 'X';
+            statusDiv.innerHTML = minhaVez ? 'Sua vez (X)' : 'Vez do celular (X)';
+            addLog('🎮 Você é ' + meuSimbolo + (minhaVez ? ' - sua vez' : ' - aguarde'));
         });
         
         socket.on('jogada', (data) => {
@@ -211,10 +222,12 @@ app.get('/', (req, res) => {
             let cell = document.getElementById('cell-' + data.pos);
             if(cell) {
                 cell.innerHTML = data.simbolo;
-                addLog('Célula ' + data.pos + ' atualizada');
+                cell.classList.add(data.simbolo.toLowerCase());
+                addLog('✅ Célula ' + data.pos + ' = ' + data.simbolo);
             }
-            minhaVez = data.proximaVez === 'X';
+            minhaVez = data.proximaVez === meuSimbolo;
             statusDiv.innerHTML = minhaVez ? 'Sua vez' : 'Vez do celular';
+            addLog('🔄 ' + (minhaVez ? 'Sua vez' : 'Vez do celular'));
         });
         
         socket.on('fim', (data) => {
@@ -228,12 +241,13 @@ app.get('/', (req, res) => {
                 c.innerHTML = '';
                 c.classList.remove('x', 'o');
             });
-            minhaVez = true;
-            statusDiv.innerHTML = 'Sua vez';
+            minhaVez = meuSimbolo === 'X';
+            statusDiv.innerHTML = minhaVez ? 'Sua vez' : 'Vez do celular';
+            addLog('🔄 Jogo reiniciado');
         });
         
         function reiniciar() {
-            addLog('Botão REINICIAR clicado');
+            addLog('👆 Botão REINICIAR clicado');
             socket.emit('reiniciar');
         }
     </script>
@@ -245,8 +259,10 @@ app.get('/', (req, res) => {
 // Lógica do jogo
 let board = ['', '', '', '', '', '', '', '', ''];
 let vez = 'X';
-let pc = null;
-let mobile = null;
+let sockets = {
+  pc: null,
+  mobile: null
+};
 
 function checkWinner() {
   const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
@@ -259,70 +275,88 @@ function checkWinner() {
 }
 
 io.on('connection', (socket) => {
-  console.log('🔵 Cliente conectado:', socket.id);
+  console.log('\n🔵 NOVO CLIENTE:', socket.id);
+  console.log('   PC:', sockets.pc);
+  console.log('   Mobile:', sockets.mobile);
   
-  if (!pc) {
-    pc = socket.id;
+  // Atribuir jogadores
+  if (!sockets.pc) {
+    sockets.pc = socket.id;
     socket.emit('inicio', { simbolo: 'X' });
-    console.log('   ➡️ Definido como PC');
-  } else if (!mobile) {
-    mobile = socket.id;
+    console.log('   ✅ Definido como PC (X)');
+  } else if (!sockets.mobile) {
+    sockets.mobile = socket.id;
     socket.emit('inicio', { simbolo: 'O' });
-    console.log('   ➡️ Definido como CELULAR');
+    console.log('   ✅ Definido como CELULAR (O)');
+  } else {
+    console.log('   ⚠️ Jogo cheio, desconectando');
+    socket.emit('fim', { msg: 'Jogo cheio!' });
+    socket.disconnect();
   }
   
   socket.on('jogada', (pos) => {
-    console.log('\n🎮 Jogada de', socket.id, 'pos', pos);
-    let jogador = socket.id === pc ? 'X' : 'O';
-    console.log('   Jogador:', jogador, 'Vez:', vez);
+    console.log('\n🎮 JOGADA recebida');
+    console.log('   Socket:', socket.id);
+    console.log('   Posição:', pos);
+    
+    let jogador = socket.id === sockets.pc ? 'X' : 'O';
+    console.log('   Jogador:', jogador);
+    console.log('   Vez atual:', vez);
     
     if (jogador !== vez) {
-      console.log('   ⚠️ Não é a vez');
+      console.log('   ⚠️ Não é a vez do jogador');
       return;
     }
     if (board[pos] !== '') {
-      console.log('   ⚠️ Posição ocupada');
+      console.log('   ⚠️ Posição já ocupada');
       return;
     }
     
     board[pos] = jogador;
-    console.log('   Board:', board);
+    console.log('   Board:', JSON.stringify(board));
     
     let winner = checkWinner();
     let proximaVez = vez === 'X' ? 'O' : 'X';
     
     if (winner) {
-      console.log('   🏆 Vencedor:', winner);
+      console.log('   🏆 VENCEDOR:', winner);
       io.emit('fim', { msg: winner + ' venceu!' });
     } else if (!board.includes('')) {
-      console.log('   🤝 Empate');
+      console.log('   🤝 EMPATE');
       io.emit('fim', { msg: 'Empate!' });
     } else {
       vez = proximaVez;
       console.log('   ➡️ Próxima vez:', vez);
     }
     
+    console.log('   📤 Emitindo para todos');
     io.emit('jogada', { pos, simbolo: jogador, proximaVez });
   });
   
   socket.on('reiniciar', () => {
-    console.log('\n🔄 Reiniciar');
+    console.log('\n🔄 REINICIAR');
     board = ['', '', '', '', '', '', '', '', ''];
     vez = 'X';
     io.emit('reiniciar');
   });
   
   socket.on('disconnect', () => {
-    console.log('🔴 Desconectado:', socket.id);
-    if (socket.id === pc) pc = null;
-    if (socket.id === mobile) mobile = null;
+    console.log('\n🔴 DESCONECTADO:', socket.id);
+    if (socket.id === sockets.pc) {
+      sockets.pc = null;
+      console.log('   PC removido');
+    }
+    if (socket.id === sockets.mobile) {
+      sockets.mobile = null;
+      console.log('   Celular removido');
+    }
     board = ['', '', '', '', '', '', '', '', ''];
     vez = 'X';
   });
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🚀 Servidor rodando!`);
+  console.log(`\n🚀 SERVIDOR RODANDO!`);
   console.log(`   Porta: ${PORT}`);
   console.log(`   URL: http://localhost:${PORT}\n`);
 });
