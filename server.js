@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,16 +12,51 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 
-// ========== ARMAZENAMENTO ==========
-const students = new Map();
-const answers = new Map();
-const sessions = new Map();
-const finishedStudents = new Set();
+// ========== ARMAZENAMENTO PERSISTENTE ==========
+const DATA_FILE = './data.json';
+
+// Carregar dados salvos
+let students = new Map();
+let answers = new Map();
+let sessions = new Map();
+
+function loadData() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+      students = new Map(Object.entries(data.students || {}));
+      answers = new Map(Object.entries(data.answers || {}));
+      sessions = new Map(Object.entries(data.sessions || {}));
+      console.log('📂 Dados carregados com sucesso!');
+    }
+  } catch (e) {
+    console.log('⚠️ Nenhum dado salvo encontrado');
+  }
+}
+
+function saveData() {
+  try {
+    const data = {
+      students: Object.fromEntries(students),
+      answers: Object.fromEntries(answers),
+      sessions: Object.fromEntries(sessions)
+    };
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+    console.log('💾 Dados salvos com sucesso!');
+  } catch (e) {
+    console.log('❌ Erro ao salvar dados:', e);
+  }
+}
+
+// Carregar dados ao iniciar
+loadData();
+
+// Salvar a cada 30 segundos
+setInterval(saveData, 30000);
 
 // ============================================================
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-// >>>>>>>> CADASTRE AS DUPLAS AQUI (nome da dupla e alunos) >>>
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+// >>>>>>>> CADASTRE AS DUPLAS AQUI >>>>>>>>>>>>>>>>>>>>>>>>>>>
 // ============================================================
 const DUPLAS = [
   {
@@ -43,7 +79,6 @@ const DUPLAS = [
     nome: 'Dupla 4',
     alunos: ['FERNANDA OLIVEIRA', 'ROBERTO ALMEIDA']
   }
-  // ADICIONE MAIS DUPLAS AQUI
 ];
 // ============================================================
 
@@ -116,18 +151,6 @@ function normalizeText(text) {
   return text.trim().toUpperCase();
 }
 
-function isAlunoCadastrado(nome) {
-  const nomeNormalizado = normalizeText(nome);
-  for (const dupla of DUPLAS) {
-    for (const aluno of dupla.alunos) {
-      if (normalizeText(aluno) === nomeNormalizado) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
 function getDuplaByAluno(nome) {
   const nomeNormalizado = normalizeText(nome);
   for (const dupla of DUPLAS) {
@@ -140,16 +163,6 @@ function getDuplaByAluno(nome) {
   return null;
 }
 
-function getDuplaByNome(nomeDupla) {
-  const nomeNormalizado = normalizeText(nomeDupla);
-  for (const dupla of DUPLAS) {
-    if (normalizeText(dupla.nome) === nomeNormalizado) {
-      return dupla;
-    }
-  }
-  return null;
-}
-
 // ========== ROTAS ==========
 
 app.get('/', (req, res) => {
@@ -157,7 +170,7 @@ app.get('/', (req, res) => {
   const isMobile = ua.includes('mobile') || ua.includes('android') || ua.includes('iphone');
 
   if (isMobile) {
-    // ========== PÁGINA DO ALUNO ==========
+    // ========== PÁGINA DO CELULAR (ALUNO) ==========
     res.send(`<!DOCTYPE html>
 <html>
 <head>
@@ -184,8 +197,7 @@ app.get('/', (req, res) => {
             border-radius: 20px;
             padding: 30px 25px;
             min-height: 90vh;
-            box-shadow: 0 0 60px rgba(192, 132, 192, 0.1), inset 0 0 60px rgba(192, 132, 192, 0.03);
-            backdrop-filter: blur(10px);
+            box-shadow: 0 0 60px rgba(192, 132, 192, 0.1);
             animation: fadeIn 0.6s ease-out;
         }
         @keyframes fadeIn {
@@ -252,7 +264,6 @@ app.get('/', (req, res) => {
             opacity: 0.5;
             margin-bottom: 6px;
             color: #c084c0;
-            transition: all 0.3s;
         }
         .form-group input {
             width: 100%;
@@ -268,7 +279,6 @@ app.get('/', (req, res) => {
         .form-group input:focus {
             border-color: #c084c0;
             box-shadow: 0 0 30px rgba(192, 132, 192, 0.1);
-            background: rgba(18, 10, 18, 0.9);
         }
         .form-group input::placeholder {
             color: rgba(90, 58, 90, 0.6);
@@ -286,34 +296,15 @@ app.get('/', (req, res) => {
             cursor: pointer;
             transition: all 0.4s;
             margin-top: 10px;
-            position: relative;
-            overflow: hidden;
         }
         .login-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 40px rgba(192, 132, 192, 0.3);
         }
-        .login-btn:active {
-            transform: translateY(0);
-        }
         .login-btn:disabled {
             background: #3a2a3a;
             color: #5a4a5a;
             cursor: not-allowed;
-            transform: none;
-        }
-        .login-btn .spinner {
-            display: none;
-            width: 20px;
-            height: 20px;
-            border: 2px solid #1a0a1a;
-            border-top: 2px solid transparent;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
         }
         .error-msg {
             color: #ff6666;
@@ -353,7 +344,7 @@ app.get('/', (req, res) => {
         .options button {
             padding: 14px;
             background: rgba(26, 10, 26, 0.8);
-            border: 1px solid rgba(192, 132, 192, 0.3);
+            border: 2px solid rgba(192, 132, 192, 0.3);
             border-radius: 10px;
             color: #d4a0d4;
             font-size: 15px;
@@ -363,7 +354,6 @@ app.get('/', (req, res) => {
         .options button:hover:not(:disabled) {
             background: rgba(42, 26, 42, 0.8);
             border-color: #d4a0d4;
-            transform: scale(1.02);
         }
         .options button.selected {
             background: #c084c0;
@@ -375,16 +365,6 @@ app.get('/', (req, res) => {
             opacity: 0.4;
             cursor: not-allowed;
             transform: none;
-        }
-        .options button.correct {
-            background: #66cc88;
-            color: #1a0a1a;
-            border-color: #66cc88;
-        }
-        .options button.wrong {
-            background: #cc6666;
-            color: #1a0a1a;
-            border-color: #cc6666;
         }
         .status-bar {
             display: flex;
@@ -430,7 +410,6 @@ app.get('/', (req, res) => {
             background: #3a2a3a;
             color: #5a4a5a;
             cursor: not-allowed;
-            transform: none;
         }
         .finish-btn {
             width: 100%;
@@ -450,12 +429,6 @@ app.get('/', (req, res) => {
         .finish-btn:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 10px 40px rgba(204, 102, 102, 0.3);
-        }
-        .finish-btn:disabled {
-            background: #3a2a3a;
-            color: #5a4a5a;
-            cursor: not-allowed;
-            transform: none;
         }
         .completion-area {
             display: none;
@@ -507,7 +480,6 @@ app.get('/', (req, res) => {
             border-radius: 8px;
             margin: 8px 0;
             display: none;
-            animation: fadeIn 0.3s ease-out;
         }
         .blocked-msg {
             text-align: center;
@@ -527,6 +499,38 @@ app.get('/', (req, res) => {
             color: #b888b8;
             margin-top: 3px;
         }
+        .view-result-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #6688cc, #4466aa);
+            color: #1a0a1a;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.4s;
+            margin-top: 15px;
+        }
+        .view-result-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(102, 136, 204, 0.3);
+        }
+        .result-area {
+            display: none;
+            animation: fadeIn 0.6s ease-out;
+        }
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(192, 132, 192, 0.1);
+            font-size: 14px;
+        }
+        .result-item .correct { color: #66cc88; }
+        .result-item .wrong { color: #cc6666; }
+        .result-item .time { opacity: 0.3; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -537,6 +541,7 @@ app.get('/', (req, res) => {
             <div class="decor"></div>
         </div>
 
+        <!-- Login -->
         <div id="loginArea" class="login-area">
             <h2>Identificação</h2>
             <div class="form-group">
@@ -545,15 +550,13 @@ app.get('/', (req, res) => {
             </div>
             <div class="form-group">
                 <label>Dupla</label>
-                <input type="text" id="studentDupla" placeholder="Ex: Dupla 1, Dupla 2, etc">
+                <input type="text" id="studentDupla" placeholder="Ex: Dupla 1, Dupla 2">
             </div>
-            <button class="login-btn" id="loginBtn">
-                <span id="loginText">Iniciar Prova</span>
-                <div class="spinner" id="loginSpinner"></div>
-            </button>
+            <button class="login-btn" id="loginBtn">Iniciar Prova</button>
             <div class="error-msg" id="loginError"></div>
         </div>
 
+        <!-- Prova -->
         <div id="examArea" class="exam-area">
             <div class="status-bar">
                 <span class="timer" id="timer">00:00</span>
@@ -566,6 +569,7 @@ app.get('/', (req, res) => {
             <button class="finish-btn" id="finishBtn">Finalizar Prova</button>
         </div>
 
+        <!-- Finalização -->
         <div id="completionArea" class="completion-area">
             <div class="icon">✦</div>
             <h2>Prova Finalizada</h2>
@@ -574,9 +578,18 @@ app.get('/', (req, res) => {
             <div class="code" id="completionCode">XXXX-XXXX</div>
             <div class="info" id="completionStats"></div>
             <div class="dupla-info" id="completionDupla"></div>
-            <button class="login-btn" onclick="location.reload()" style="margin-top:25px;">Nova Prova</button>
+            <button class="view-result-btn" id="viewResultBtn">Ver Respostas</button>
+            <button class="login-btn" onclick="location.reload()" style="margin-top:10px;">Nova Prova</button>
         </div>
 
+        <!-- Resultados -->
+        <div id="resultArea" class="result-area">
+            <h2 style="text-align:center;font-weight:300;letter-spacing:2px;margin-bottom:15px;">Suas Respostas</h2>
+            <div id="resultList"></div>
+            <button class="login-btn" onclick="location.reload()" style="margin-top:15px;">Voltar</button>
+        </div>
+
+        <!-- Bloqueado -->
         <div id="blockedArea" class="blocked-msg" style="display:none;">
             <h2>Acesso Bloqueado</h2>
             <p>Esta prova já foi finalizada.</p>
@@ -599,14 +612,14 @@ app.get('/', (req, res) => {
         let questionStartTime = null;
         let isFinished = false;
         let selectedAnswer = null;
+        let questionsData = ${JSON.stringify(questions)};
 
         const loginArea = document.getElementById('loginArea');
         const examArea = document.getElementById('examArea');
         const completionArea = document.getElementById('completionArea');
+        const resultArea = document.getElementById('resultArea');
         const blockedArea = document.getElementById('blockedArea');
         const loginBtn = document.getElementById('loginBtn');
-        const loginText = document.getElementById('loginText');
-        const loginSpinner = document.getElementById('loginSpinner');
         const loginError = document.getElementById('loginError');
         const questionContainer = document.getElementById('questionContainer');
         const progress = document.getElementById('progress');
@@ -619,7 +632,10 @@ app.get('/', (req, res) => {
         const completionStats = document.getElementById('completionStats');
         const scoreDisplay = document.getElementById('scoreDisplay');
         const completionDupla = document.getElementById('completionDupla');
+        const resultList = document.getElementById('resultList');
+        const viewResultBtn = document.getElementById('viewResultBtn');
 
+        // Login
         loginBtn.onclick = () => {
             const name = document.getElementById('studentName').value.trim();
             const dupla = document.getElementById('studentDupla').value.trim();
@@ -630,8 +646,7 @@ app.get('/', (req, res) => {
             }
 
             loginBtn.disabled = true;
-            loginText.textContent = 'Conectando';
-            loginSpinner.style.display = 'block';
+            loginBtn.textContent = 'Conectando...';
             loginError.textContent = '';
 
             studentName = name;
@@ -642,6 +657,23 @@ app.get('/', (req, res) => {
         socket.on('login_success', (data) => {
             studentId = data.studentId;
             isLoggedIn = true;
+            
+            // Verificar se já finalizou
+            if(data.alreadyFinished) {
+                loginArea.style.display = 'none';
+                completionArea.style.display = 'block';
+                completionCode.textContent = data.completionCode || 'XXXX-XXXX';
+                scoreDisplay.textContent = data.correctCount + '/10';
+                completionStats.textContent = 'Tempo total: ' + formatTime(data.totalTime || 0);
+                completionDupla.textContent = 'Dupla: ' + data.dupla;
+                viewResultBtn.style.display = 'block';
+                // Salvar respostas para ver depois
+                window.savedAnswers = data.allAnswers || {};
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Iniciar Prova';
+                return;
+            }
+
             loginArea.style.display = 'none';
             examArea.style.display = 'block';
             studentInfo.textContent = data.name + ' | ' + data.dupla;
@@ -649,22 +681,22 @@ app.get('/', (req, res) => {
             startTimer();
             renderQuestion(0);
             loginBtn.disabled = false;
-            loginText.textContent = 'Iniciar Prova';
-            loginSpinner.style.display = 'none';
+            loginBtn.textContent = 'Iniciar Prova';
         });
 
         socket.on('login_error', (data) => {
             loginError.textContent = data.error || 'Erro ao logar';
             loginBtn.disabled = false;
-            loginText.textContent = 'Iniciar Prova';
-            loginSpinner.style.display = 'none';
+            loginBtn.textContent = 'Iniciar Prova';
         });
 
         socket.on('already_finished', () => {
             loginArea.style.display = 'none';
-            blockedArea.style.display = 'block';
+            completionArea.style.display = 'block';
+            viewResultBtn.style.display = 'block';
         });
 
+        // Timer
         function startTimer() {
             timerInterval = setInterval(() => {
                 elapsedSeconds++;
@@ -674,8 +706,8 @@ app.get('/', (req, res) => {
             }, 1000);
         }
 
+        // Render Question
         function renderQuestion(index) {
-            const questionsData = ${JSON.stringify(questions)};
             if(index >= questionsData.length) {
                 finishBtn.style.display = 'block';
                 nextBtn.style.display = 'none';
@@ -687,13 +719,19 @@ app.get('/', (req, res) => {
             selectedAnswer = null;
             questionStartTime = Date.now();
 
+            // Verificar se já respondeu essa questão
+            const savedAnswer = answers[q.id] ? answers[q.id].answer : null;
+
             questionContainer.innerHTML = \`
                 <div class="question-container">
                     <div class="question-number">Questão \${index + 1} de 10</div>
                     <div class="question-text">\${q.question}</div>
                     <div class="options" id="optionsContainer">
                         \${q.options.map(opt => \`
-                            <button onclick="selectAnswer('\${opt}', \${q.id}, \${index})" id="opt_\${q.id}_\${opt.replace(/[^a-zA-Z0-9]/g, '_')}">
+                            <button onclick="selectAnswer('\${opt}', \${q.id}, \${index})" 
+                                    id="opt_\${q.id}_\${opt.replace(/[^a-zA-Z0-9]/g, '_')}"
+                                    class="\${savedAnswer === opt ? 'selected' : ''}"
+                                    \${savedAnswer ? 'disabled' : ''}>
                                 \${opt}
                             </button>
                         \`).join('')}
@@ -704,9 +742,15 @@ app.get('/', (req, res) => {
             progress.textContent = 'Questão ' + (index + 1) + ' de 10';
             finishBtn.style.display = 'none';
             nextBtn.style.display = 'block';
-            nextBtn.disabled = true;
+            nextBtn.disabled = savedAnswer ? false : true;
+
+            // Se já respondeu, salva a resposta
+            if(savedAnswer) {
+                selectedAnswer = savedAnswer;
+            }
         }
 
+        // Select Answer
         function selectAnswer(answer, questionId, index) {
             const timeSpent = (Date.now() - questionStartTime) / 1000;
             
@@ -722,6 +766,7 @@ app.get('/', (req, res) => {
                 const buttons = container.querySelectorAll('button');
                 buttons.forEach(btn => {
                     btn.disabled = true;
+                    btn.classList.remove('selected');
                     if(btn.textContent === answer) {
                         btn.classList.add('selected');
                     }
@@ -735,7 +780,6 @@ app.get('/', (req, res) => {
 
             nextBtn.disabled = false;
 
-            const questionsData = ${JSON.stringify(questions)};
             const q = questionsData.find(q => q.id === questionId);
             const isCorrect = q.answer === answer;
 
@@ -749,10 +793,11 @@ app.get('/', (req, res) => {
             });
         }
 
+        // Next Question
         nextBtn.onclick = () => {
             if(selectedAnswer === null) return;
             currentQuestion++;
-            if(currentQuestion >= ${JSON.stringify(questions)}.length) {
+            if(currentQuestion >= questionsData.length) {
                 renderQuestion(currentQuestion);
                 finishBtn.style.display = 'block';
                 nextBtn.style.display = 'none';
@@ -762,8 +807,9 @@ app.get('/', (req, res) => {
             }
         };
 
+        // Finish Exam
         finishBtn.onclick = () => {
-            const totalQuestions = ${JSON.stringify(questions)}.length;
+            const totalQuestions = questionsData.length;
             const answered = Object.keys(answers).length;
 
             if(answered < totalQuestions) {
@@ -780,7 +826,6 @@ app.get('/', (req, res) => {
                 const totalTime = Math.round(elapsedSeconds);
                 const completionCode = generateCode();
 
-                const questionsData = ${JSON.stringify(questions)};
                 let correctCount = 0;
                 Object.keys(answers).forEach(qId => {
                     const q = questionsData.find(q => q.id === parseInt(qId));
@@ -805,9 +850,42 @@ app.get('/', (req, res) => {
                 scoreDisplay.textContent = correctCount + '/10';
                 completionStats.textContent = 'Tempo total: ' + formatTime(totalTime);
                 completionDupla.textContent = 'Dupla: ' + studentDupla;
+                viewResultBtn.style.display = 'block';
+                window.savedAnswers = answers;
             }
         };
 
+        // View Results
+        viewResultBtn.onclick = () => {
+            const savedAnswers = window.savedAnswers || {};
+            const totalQuestions = questionsData.length;
+            
+            let html = '';
+            for(let i = 0; i < totalQuestions; i++) {
+                const q = questionsData[i];
+                const ans = savedAnswers[q.id];
+                const isCorrect = ans && ans.answer === q.answer;
+                const status = isCorrect ? '✓' : '✗';
+                const statusClass = isCorrect ? 'correct' : 'wrong';
+                
+                html += \`
+                    <div class="result-item">
+                        <span>Q\${i+1}: \${q.question.substring(0, 30)}\${q.question.length > 30 ? '...' : ''}</span>
+                        <span>
+                            <span class="\${statusClass}">\${status}</span>
+                            \${ans ? ans.answer : '—'}
+                            <span class="time">\${ans ? ans.timeSpent + 's' : '—'}</span>
+                        </span>
+                    </div>
+                \`;
+            }
+            
+            resultList.innerHTML = html;
+            completionArea.style.display = 'none';
+            resultArea.style.display = 'block';
+        };
+
+        // Generate Code
         function generateCode() {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
             let code = '';
@@ -832,16 +910,17 @@ app.get('/', (req, res) => {
             }, 3000);
         }
 
-        document.addEventListener('copy', (e) => {
+        // Copy/Paste Detection
+        document.addEventListener('copy', () => {
             if(isLoggedIn && !isFinished) {
-                socket.emit('copy_detected', { studentId, timestamp: new Date().toISOString() });
+                socket.emit('copy_detected', { studentId });
                 showWarning('Copiar não permitido');
             }
         });
 
-        document.addEventListener('paste', (e) => {
+        document.addEventListener('paste', () => {
             if(isLoggedIn && !isFinished) {
-                socket.emit('paste_detected', { studentId, timestamp: new Date().toISOString() });
+                socket.emit('paste_detected', { studentId });
                 showWarning('Colar não permitido');
             }
         });
@@ -850,19 +929,11 @@ app.get('/', (req, res) => {
             alert('Conexão encerrada');
             location.reload();
         });
-
-        socket.on('connect', () => {
-            console.log('Conectado');
-        });
-
-        socket.on('disconnect', () => {
-            console.log('Desconectado');
-        });
     </script>
 </body>
 </html>`);
   } else {
-    // ========== PÁGINA DO PROFESSOR ==========
+    // ========== PÁGINA DO PC (PROFESSOR + ALUNO) ==========
     res.send(`<!DOCTYPE html>
 <html>
 <head>
@@ -879,23 +950,25 @@ app.get('/', (req, res) => {
             padding: 20px;
         }
         .container { max-width: 1400px; margin: 0 auto; }
+        
+        /* Header */
         .header-main {
             text-align: center;
-            padding: 20px 0 30px;
+            padding: 15px 0 25px;
             animation: fadeIn 0.6s ease-out;
         }
         .header-main h1 {
             font-weight: 300;
-            font-size: 28px;
+            font-size: 26px;
             letter-spacing: 4px;
             color: #e8c8e8;
             text-shadow: 0 0 40px rgba(192, 132, 192, 0.15);
         }
         .header-main .sub {
-            font-size: 14px;
+            font-size: 13px;
             opacity: 0.4;
             display: block;
-            margin-top: 6px;
+            margin-top: 5px;
             letter-spacing: 2px;
             color: #b888b8;
         }
@@ -903,27 +976,30 @@ app.get('/', (req, res) => {
             width: 80px;
             height: 2px;
             background: linear-gradient(90deg, transparent, #c084c0, transparent);
-            margin: 12px auto 0;
+            margin: 10px auto 0;
         }
+        
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
+            from { opacity: 0; transform: translateY(15px); }
             to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-20px); }
-            to { opacity: 1; transform: translateX(0); }
         }
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-15px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Login Professor */
         .login-panel {
             max-width: 420px;
-            margin: 0 auto 25px;
+            margin: 0 auto 20px;
             background: rgba(18, 10, 18, 0.9);
             border: 1px solid rgba(192, 132, 192, 0.3);
             border-radius: 16px;
-            padding: 30px;
+            padding: 25px 30px;
             animation: slideIn 0.5s ease-out;
         }
         .login-panel h2 {
@@ -931,14 +1007,14 @@ app.get('/', (req, res) => {
             font-weight: 300;
             letter-spacing: 3px;
             opacity: 0.5;
-            font-size: 16px;
-            margin-bottom: 18px;
+            font-size: 15px;
+            margin-bottom: 15px;
             color: #d4a0d4;
         }
-        .form-group { margin-bottom: 14px; }
+        .form-group { margin-bottom: 12px; }
         .form-group label {
             display: block;
-            font-size: 12px;
+            font-size: 11px;
             letter-spacing: 1.5px;
             opacity: 0.4;
             margin-bottom: 4px;
@@ -946,7 +1022,7 @@ app.get('/', (req, res) => {
         }
         .form-group input {
             width: 100%;
-            padding: 12px 16px;
+            padding: 10px 14px;
             background: rgba(26, 10, 26, 0.8);
             border: 1px solid rgba(192, 132, 192, 0.3);
             border-radius: 10px;
@@ -961,12 +1037,12 @@ app.get('/', (req, res) => {
         }
         .btn-primary {
             width: 100%;
-            padding: 14px;
+            padding: 12px;
             background: linear-gradient(135deg, #c084c0, #a060a0);
             color: #1a0a1a;
             border: none;
             border-radius: 10px;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 600;
             letter-spacing: 3px;
             cursor: pointer;
@@ -979,15 +1055,17 @@ app.get('/', (req, res) => {
         .error-msg {
             color: #ff6666;
             text-align: center;
-            margin-top: 12px;
-            font-size: 13px;
+            margin-top: 10px;
+            font-size: 12px;
             animation: fadeIn 0.3s ease-out;
         }
+
+        /* Main Grid */
         .main-grid {
             display: grid;
             grid-template-columns: 320px 1fr;
             gap: 20px;
-            height: calc(100vh - 230px);
+            height: calc(100vh - 300px);
             animation: fadeIn 0.6s ease-out;
         }
         .panel {
@@ -1002,27 +1080,29 @@ app.get('/', (req, res) => {
         .panel::-webkit-scrollbar-thumb { background: #c084c0; border-radius: 2px; }
         .panel h2 {
             font-weight: 300;
-            font-size: 14px;
+            font-size: 13px;
             letter-spacing: 3px;
-            margin-bottom: 14px;
+            margin-bottom: 12px;
             opacity: 0.5;
             border-bottom: 1px solid rgba(192, 132, 192, 0.15);
-            padding-bottom: 10px;
+            padding-bottom: 8px;
             color: #d4a0d4;
         }
         .panel h3 {
             font-weight: 300;
-            font-size: 12px;
+            font-size: 11px;
             letter-spacing: 2px;
-            margin: 12px 0 6px;
+            margin: 10px 0 5px;
             opacity: 0.3;
             color: #b888b8;
         }
+
+        /* Student Items */
         .student-item {
-            padding: 12px 14px;
+            padding: 10px 12px;
             border: 1px solid rgba(192, 132, 192, 0.2);
             border-radius: 10px;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             cursor: pointer;
             transition: all 0.3s;
         }
@@ -1035,93 +1115,137 @@ app.get('/', (req, res) => {
             border-color: #c084c0;
             box-shadow: 0 0 30px rgba(192, 132, 192, 0.05);
         }
-        .student-item .name { font-size: 15px; color: #e8c8e8; }
-        .student-item .dupla { font-size: 12px; opacity: 0.4; color: #b888b8; margin-top: 2px; }
+        .student-item .name { font-size: 14px; color: #e8c8e8; }
+        .student-item .dupla { font-size: 11px; opacity: 0.4; color: #b888b8; margin-top: 2px; }
         .student-item .status {
-            font-size: 9px;
-            padding: 3px 12px;
+            font-size: 8px;
+            padding: 2px 10px;
             border-radius: 20px;
             letter-spacing: 1px;
             display: inline-block;
-            margin-top: 4px;
+            margin-top: 3px;
         }
         .status.online { background: #66cc88; color: #1a0a1a; }
         .status.offline { background: rgba(58, 42, 58, 0.6); color: #5a4a5a; }
         .status.finished { background: #cc6666; color: #1a0a1a; }
+
+        /* Details */
         .detail-item {
-            padding: 7px 0;
+            padding: 6px 0;
             border-bottom: 1px solid rgba(192, 132, 192, 0.08);
             font-size: 12px;
             display: flex;
             justify-content: space-between;
+            align-items: center;
             transition: all 0.3s;
         }
         .detail-item:hover { opacity: 1; }
-        .detail-item .label { opacity: 0.4; color: #b888b8; }
+        .detail-item .label { opacity: 0.4; color: #b888b8; font-size: 11px; }
         .detail-item .value { color: #d4a0d4; }
-        .detail-item .correct { color: #66cc88; }
-        .detail-item .wrong { color: #cc6666; }
+        .detail-item .correct { color: #66cc88; font-weight: bold; }
+        .detail-item .wrong { color: #cc6666; font-weight: bold; }
         .detail-item .warning-text { color: #ff8844; }
-        .no-data { text-align: center; opacity: 0.2; padding: 25px; font-size: 13px; letter-spacing: 2px; color: #b888b8; }
+        .detail-item .time-badge {
+            font-size: 9px;
+            opacity: 0.3;
+            margin-left: 8px;
+        }
+        .no-data { text-align: center; opacity: 0.2; padding: 20px; font-size: 12px; letter-spacing: 2px; color: #b888b8; }
+
+        /* Stats */
         .stats-grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr 1fr;
-            gap: 8px;
-            margin: 10px 0;
+            gap: 6px;
+            margin: 8px 0;
         }
         .stats-grid .stat {
             background: rgba(26, 10, 26, 0.6);
-            padding: 12px 8px;
+            padding: 10px 6px;
             border: 1px solid rgba(192, 132, 192, 0.15);
-            border-radius: 10px;
+            border-radius: 8px;
             text-align: center;
         }
         .stats-grid .stat .number {
-            font-size: 22px;
+            font-size: 20px;
             letter-spacing: 2px;
             color: #e8c8e8;
         }
         .stats-grid .stat .label {
-            font-size: 8px;
+            font-size: 7px;
             opacity: 0.3;
             letter-spacing: 1px;
-            margin-top: 3px;
+            margin-top: 2px;
             color: #b888b8;
         }
+
         .code-display {
             background: rgba(26, 10, 26, 0.8);
-            padding: 12px;
+            padding: 10px;
             border: 1px solid #c084c0;
-            border-radius: 10px;
+            border-radius: 8px;
             text-align: center;
-            font-size: 22px;
+            font-size: 20px;
             letter-spacing: 6px;
-            margin: 10px 0;
+            margin: 8px 0;
             color: #d4a0d4;
             animation: pulse 2s infinite;
         }
+
         .badge {
             background: #cc6666;
             color: #1a0a1a;
-            font-size: 9px;
-            padding: 2px 10px;
+            font-size: 8px;
+            padding: 2px 8px;
             border-radius: 20px;
-            margin-left: 5px;
+            margin-left: 4px;
             display: inline-block;
         }
         .badge.warning { background: #ff8844; }
         .badge.success { background: #66cc88; }
         .badge.info { background: #6688cc; }
-        .dupla-tag {
-            display: inline-block;
-            background: rgba(192, 132, 192, 0.15);
-            padding: 2px 10px;
-            border-radius: 20px;
-            font-size: 10px;
-            color: #b888b8;
-            letter-spacing: 1px;
-            margin-top: 2px;
+
+        .aluno-login-area {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(192, 132, 192, 0.2);
         }
+        .aluno-login-area h3 {
+            text-align: center;
+            font-weight: 300;
+            letter-spacing: 2px;
+            opacity: 0.4;
+            font-size: 13px;
+            color: #b888b8;
+            margin-bottom: 12px;
+        }
+        .aluno-login-area .form-group input {
+            background: rgba(18, 10, 18, 0.9);
+        }
+        .btn-aluno {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #6688cc, #4466aa);
+            color: #1a0a1a;
+            border: none;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.4s;
+            margin-top: 8px;
+        }
+        .btn-aluno:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(102, 136, 204, 0.25);
+        }
+        .btn-aluno:disabled {
+            background: #3a2a3a;
+            color: #5a4a5a;
+            cursor: not-allowed;
+        }
+
         @media (max-width: 900px) {
             .main-grid { grid-template-columns: 1fr; height: auto; }
             .panel { max-height: 400px; }
@@ -1137,22 +1261,39 @@ app.get('/', (req, res) => {
             <div class="decor"></div>
         </div>
 
+        <!-- Login do Professor -->
         <div id="teacherLogin" class="login-panel">
-            <h2>Acesso Restrito</h2>
+            <h2>Professor - Acesso Restrito</h2>
             <div class="form-group">
                 <label>Senha</label>
                 <input type="password" id="teacherPassword" placeholder="Digite a senha">
             </div>
             <button class="btn-primary" id="teacherLoginBtn">Acessar</button>
             <div class="error-msg" id="teacherLoginError"></div>
+            
+            <!-- Login do Aluno (dentro do painel do professor) -->
+            <div class="aluno-login-area">
+                <h3>Aluno - Acessar Prova</h3>
+                <div class="form-group">
+                    <label>Nome Completo</label>
+                    <input type="text" id="alunoName" placeholder="Digite seu nome">
+                </div>
+                <div class="form-group">
+                    <label>Dupla</label>
+                    <input type="text" id="alunoDupla" placeholder="Ex: Dupla 1">
+                </div>
+                <button class="btn-aluno" id="alunoLoginBtn">Iniciar Prova</button>
+                <div class="error-msg" id="alunoLoginError"></div>
+            </div>
         </div>
 
+        <!-- Painel Principal -->
         <div id="mainPanel" style="display:none;">
             <div class="main-grid">
                 <div class="panel">
-                    <h2>Alunos Ativos</h2>
+                    <h2>Alunos</h2>
                     <div id="studentList">
-                        <div class="no-data">Aguardando alunos...</div>
+                        <div class="no-data">Nenhum aluno conectado</div>
                     </div>
                 </div>
 
@@ -1179,9 +1320,16 @@ app.get('/', (req, res) => {
         const teacherLoginError = document.getElementById('teacherLoginError');
         const studentList = document.getElementById('studentList');
         const studentDetails = document.getElementById('studentDetails');
+        
+        // Aluno login dentro do PC
+        const alunoName = document.getElementById('alunoName');
+        const alunoDupla = document.getElementById('alunoDupla');
+        const alunoLoginBtn = document.getElementById('alunoLoginBtn');
+        const alunoLoginError = document.getElementById('alunoLoginError');
 
         const TEACHER_PASSWORD = "heber123456";
 
+        // ===== LOGIN PROFESSOR =====
         teacherLoginBtn.onclick = () => {
             const pass = teacherPassword.value.trim();
             if(!pass) { teacherLoginError.textContent = 'Digite a senha'; return; }
@@ -1201,6 +1349,30 @@ app.get('/', (req, res) => {
             if(e.key === 'Enter') teacherLoginBtn.click();
         });
 
+        // ===== LOGIN ALUNO PELO PC =====
+        alunoLoginBtn.onclick = () => {
+            const name = alunoName.value.trim();
+            const dupla = alunoDupla.value.trim();
+            
+            if(!name || !dupla) {
+                alunoLoginError.textContent = 'Preencha todos os campos';
+                return;
+            }
+
+            alunoLoginBtn.disabled = true;
+            alunoLoginBtn.textContent = 'Conectando...';
+            alunoLoginError.textContent = '';
+
+            // Abrir em nova janela para o aluno
+            window.open('/', '_blank');
+            
+            setTimeout(() => {
+                alunoLoginBtn.disabled = false;
+                alunoLoginBtn.textContent = 'Iniciar Prova';
+            }, 2000);
+        };
+
+        // ===== CARREGAR ALUNOS =====
         async function loadStudents() {
             if(!isLoggedIn) return;
             try {
@@ -1214,7 +1386,7 @@ app.get('/', (req, res) => {
 
         function renderStudents(students) {
             if(students.length === 0) {
-                studentList.innerHTML = '<div class="no-data">Nenhum aluno conectado</div>';
+                studentList.innerHTML = '<div class="no-data">Nenhum aluno cadastrado</div>';
                 return;
             }
 
@@ -1235,6 +1407,7 @@ app.get('/', (req, res) => {
             \`).join('');
         }
 
+        // ===== SELECIONAR ALUNO =====
         async function selectStudent(studentId) {
             if(!isLoggedIn) return;
             currentStudentId = studentId;
@@ -1257,6 +1430,7 @@ app.get('/', (req, res) => {
             const totalAnswers = student.answers ? Object.keys(student.answers).length : 0;
             const correctAnswers = student.answers ? 
                 Object.values(student.answers).filter(a => a.isCorrect).length : 0;
+            const totalTime = student.totalTime || 0;
 
             let answersHtml = '';
             if(student.answers) {
@@ -1264,16 +1438,16 @@ app.get('/', (req, res) => {
                 answersHtml = sorted.map(qId => {
                     const ans = student.answers[qId];
                     const isCorrect = ans && ans.isCorrect;
-                    const isFast = ans && ans.timeSpent < 5;
+                    const timeSpent = ans ? ans.timeSpent : 0;
                     
                     return \`
                         <div class="detail-item">
-                            <span class="label">Q\${qId}</span>
+                            <span class="label">Questão \${qId}</span>
                             <span>
                                 <span class="\${isCorrect ? 'correct' : 'wrong'}">\${isCorrect ? '✓' : '✗'}</span>
-                                \${ans ? ans.answer : '---'}
-                                <span style="opacity:0.3;font-size:10px;">\${ans ? ans.timeSpent + 's' : '---'}</span>
-                                \${isFast ? '<span class="badge warning" style="font-size:8px;">Rápido</span>' : ''}
+                                \${ans ? ans.answer : '—'}
+                                <span class="time-badge">\${timeSpent}s</span>
+                                \${timeSpent < 5 && ans ? '<span class="badge warning" style="font-size:7px;">Rápido</span>' : ''}
                             </span>
                         </div>
                     \`;
@@ -1288,13 +1462,13 @@ app.get('/', (req, res) => {
                         <span class="warning-text">\${new Date(w.timestamp).toLocaleTimeString()}</span>
                     </div>
                 \`).join('') : 
-                '<div class="no-data" style="font-size:11px;">Nenhum alerta</div>';
+                '<div class="no-data" style="font-size:10px;">Nenhum alerta</div>';
 
             studentDetails.innerHTML = \`
-                <div style="margin-bottom:15px;">
-                    <div style="font-size:20px;letter-spacing:2px;color:#e8c8e8;">\${student.name}</div>
-                    <div style="font-size:13px;opacity:0.4;">Dupla: \${student.dupla}</div>
-                    <div style="font-size:12px;opacity:0.3;">Login: \${new Date(student.loginTime).toLocaleString()}</div>
+                <div style="margin-bottom:12px;">
+                    <div style="font-size:18px;letter-spacing:2px;color:#e8c8e8;">\${student.name}</div>
+                    <div style="font-size:12px;opacity:0.4;">Dupla: \${student.dupla}</div>
+                    <div style="font-size:11px;opacity:0.3;">Login: \${new Date(student.loginTime).toLocaleString()}</div>
                     \${student.completionCode ? \`
                         <div class="code-display">\${student.completionCode}</div>
                     \` : ''}
@@ -1312,7 +1486,7 @@ app.get('/', (req, res) => {
                         <div class="label">Acertos</div>
                     </div>
                     <div class="stat">
-                        <div class="number">\${student.totalTime || 0}s</div>
+                        <div class="number">\${totalTime}s</div>
                         <div class="label">Tempo Total</div>
                     </div>
                     <div class="stat">
@@ -1329,45 +1503,36 @@ app.get('/', (req, res) => {
             \`;
         }
 
-        socket.on('new_student', (data) => {
-            if(isLoggedIn) loadStudents();
-        });
+        // ===== SOCKET EVENTS =====
+        socket.on('new_student', () => { if(isLoggedIn) loadStudents(); });
+        socket.on('student_answer', () => { if(isLoggedIn) loadStudents(); });
+        socket.on('student_warning', () => { if(isLoggedIn) loadStudents(); });
+        socket.on('student_finished', () => { if(isLoggedIn) loadStudents(); });
+        socket.on('student_status_change', () => { if(isLoggedIn) loadStudents(); });
 
+        // Atualizar detalhes quando houver mudança
         socket.on('student_answer', (data) => {
-            if(isLoggedIn) {
-                if(currentStudentId === data.studentId) {
-                    fetch('/api/students/' + data.studentId)
-                        .then(r => r.json())
-                        .then(s => renderStudentDetails(s));
-                }
-                loadStudents();
+            if(isLoggedIn && currentStudentId === data.studentId) {
+                fetch('/api/students/' + data.studentId)
+                    .then(r => r.json())
+                    .then(s => renderStudentDetails(s));
             }
         });
 
         socket.on('student_warning', (data) => {
-            if(isLoggedIn) {
-                if(currentStudentId === data.studentId) {
-                    fetch('/api/students/' + data.studentId)
-                        .then(r => r.json())
-                        .then(s => renderStudentDetails(s));
-                }
-                loadStudents();
+            if(isLoggedIn && currentStudentId === data.studentId) {
+                fetch('/api/students/' + data.studentId)
+                    .then(r => r.json())
+                    .then(s => renderStudentDetails(s));
             }
         });
 
         socket.on('student_finished', (data) => {
-            if(isLoggedIn) {
-                if(currentStudentId === data.studentId) {
-                    fetch('/api/students/' + data.studentId)
-                        .then(r => r.json())
-                        .then(s => renderStudentDetails(s));
-                }
-                loadStudents();
+            if(isLoggedIn && currentStudentId === data.studentId) {
+                fetch('/api/students/' + data.studentId)
+                    .then(r => r.json())
+                    .then(s => renderStudentDetails(s));
             }
-        });
-
-        socket.on('student_status_change', (data) => {
-            if(isLoggedIn) loadStudents();
         });
 
         if(isLoggedIn) loadStudents();
@@ -1387,22 +1552,13 @@ app.post('/api/students', (req, res) => {
   const nameNormalizado = normalizeText(name);
   const duplaNormalizada = normalizeText(dupla);
 
-  // Verifica se o aluno está cadastrado em alguma dupla
   const duplaEncontrada = getDuplaByAluno(nameNormalizado);
   if(!duplaEncontrada) {
     return res.status(403).json({ error: 'Aluno não cadastrado' });
   }
 
-  // Verifica se a dupla informada corresponde à dupla do aluno
   if(normalizeText(duplaEncontrada.nome) !== duplaNormalizada) {
     return res.status(403).json({ error: 'Dupla incorreta para este aluno' });
-  }
-
-  // Verifica se já finalizou
-  for(let [id, s] of students) {
-    if(s.name === nameNormalizado && s.finished) {
-      return res.status(403).json({ error: 'Prova já finalizada', alreadyFinished: true });
-    }
   }
 
   let existingStudent = null;
@@ -1418,7 +1574,15 @@ app.post('/api/students', (req, res) => {
 
   if(existingStudent) {
     if(existingStudent.finished) {
-      return res.status(403).json({ error: 'Prova já finalizada', alreadyFinished: true });
+      return res.status(403).json({ 
+        error: 'Prova já finalizada', 
+        alreadyFinished: true,
+        completionCode: existingStudent.completionCode,
+        correctCount: existingStudent.correctCount || 0,
+        totalTime: existingStudent.totalTime || 0,
+        dupla: existingStudent.dupla,
+        allAnswers: existingStudent.answers || {}
+      });
     }
     studentId = existingStudent.id;
     student = existingStudent;
@@ -1431,11 +1595,12 @@ app.post('/api/students', (req, res) => {
       socketId: null,
       online: false,
       finished: false,
-      loginTime: new Date(),
+      loginTime: new Date().toISOString(),
       totalTime: 0,
       answers: {},
       warnings: [],
       completionCode: null,
+      correctCount: 0,
       copyCount: 0,
       pasteCount: 0
     };
@@ -1443,9 +1608,14 @@ app.post('/api/students', (req, res) => {
     answers.set(studentId, {});
     sessions.set(studentId, { startTime: Date.now(), lastActivity: Date.now() });
     io.emit('new_student', { studentId, name: nameNormalizado, dupla: duplaNormalizada });
+    saveData();
   }
 
-  res.status(201).json({ ...student, alreadyFinished: false });
+  res.status(201).json({ 
+    ...student, 
+    alreadyFinished: false,
+    allAnswers: student.answers || {}
+  });
 });
 
 app.get('/api/students', (req, res) => {
@@ -1469,6 +1639,7 @@ app.delete('/api/students/:id', (req, res) => {
   students.delete(req.params.id);
   answers.delete(req.params.id);
   sessions.delete(req.params.id);
+  saveData();
   res.json({ success: true });
 });
 
@@ -1481,26 +1652,19 @@ io.on('connection', (socket) => {
     const nameNormalizado = normalizeText(name);
     const duplaNormalizada = normalizeText(dupla);
 
-    console.log('Tentativa de login:', nameNormalizado, '| Dupla:', duplaNormalizada);
+    console.log('Tentativa login:', nameNormalizado, '| Dupla:', duplaNormalizada);
 
-    // Verifica se o aluno está cadastrado
     const duplaEncontrada = getDuplaByAluno(nameNormalizado);
     if(!duplaEncontrada) {
-      console.log('❌ Aluno não cadastrado:', nameNormalizado);
       socket.emit('login_error', { error: 'Aluno não cadastrado' });
       return;
     }
 
-    console.log('✅ Aluno encontrado na dupla:', duplaEncontrada.nome);
-
-    // Verifica se a dupla informada corresponde à dupla do aluno
     if(normalizeText(duplaEncontrada.nome) !== duplaNormalizada) {
-      console.log('❌ Dupla incorreta. Esperado:', duplaEncontrada.nome, 'Recebido:', duplaNormalizada);
       socket.emit('login_error', { error: 'Dupla incorreta para este aluno' });
       return;
     }
 
-    // Verifica se já finalizou
     let existingStudent = null;
     for(let [id, s] of students) {
       if(s.name === nameNormalizado) {
@@ -1509,8 +1673,18 @@ io.on('connection', (socket) => {
       }
     }
 
+    // Se já finalizou, retorna os dados para visualização
     if(existingStudent && existingStudent.finished) {
-      socket.emit('already_finished');
+      socket.emit('login_success', {
+        studentId: existingStudent.id,
+        name: existingStudent.name,
+        dupla: existingStudent.dupla,
+        alreadyFinished: true,
+        completionCode: existingStudent.completionCode,
+        correctCount: existingStudent.correctCount || 0,
+        totalTime: existingStudent.totalTime || 0,
+        allAnswers: existingStudent.answers || {}
+      });
       return;
     }
 
@@ -1529,11 +1703,12 @@ io.on('connection', (socket) => {
         socketId: null,
         online: false,
         finished: false,
-        loginTime: new Date(),
+        loginTime: new Date().toISOString(),
         totalTime: 0,
         answers: {},
         warnings: [],
         completionCode: null,
+        correctCount: 0,
         copyCount: 0,
         pasteCount: 0
       };
@@ -1541,6 +1716,7 @@ io.on('connection', (socket) => {
       answers.set(studentId, {});
       sessions.set(studentId, { startTime: Date.now(), lastActivity: Date.now() });
       io.emit('new_student', { studentId, name: nameNormalizado, dupla: duplaNormalizada });
+      saveData();
     }
 
     if(student.socketId) {
@@ -1550,7 +1726,7 @@ io.on('connection', (socket) => {
 
     student.socketId = socket.id;
     student.online = true;
-    student.loginTime = new Date();
+    student.loginTime = new Date().toISOString();
     currentStudentId = studentId;
 
     const studentAnswers = answers.get(studentId) || {};
@@ -1560,10 +1736,12 @@ io.on('connection', (socket) => {
       studentId,
       name: student.name,
       dupla: student.dupla,
-      answers: studentAnswers
+      answers: studentAnswers,
+      alreadyFinished: false
     });
 
     console.log('✅ ' + student.name + ' logou | Dupla: ' + student.dupla);
+    saveData();
   });
 
   socket.on('answer_submitted', (data) => {
@@ -1594,41 +1772,44 @@ io.on('connection', (socket) => {
 
     const session = sessions.get(studentId);
     if(session) {
-      student.totalTime = Math.round((Date.now() - session.startTime) / 1000);
+      student.totalTime = Math.round((Date.now() - new Date(session.startTime).getTime()) / 1000);
     }
 
     students.set(studentId, student);
     io.emit('student_answer', { studentId, questionId, answer, isCorrect });
     console.log('📝 ' + student.name + ' - Q' + questionId + ': ' + answer);
+    saveData();
   });
 
-  socket.on('copy_detected', ({ studentId, timestamp }) => {
+  socket.on('copy_detected', ({ studentId }) => {
     const student = students.get(studentId);
     if(student && !student.finished) {
       student.copyCount = (student.copyCount || 0) + 1;
       student.warnings.push({
         type: 'Cópia detectada',
-        timestamp: timestamp || new Date().toISOString(),
+        timestamp: new Date().toISOString(),
         count: student.copyCount
       });
       students.set(studentId, student);
       io.emit('student_warning', { studentId, warning: 'Cópia detectada' });
       console.log('📋 ' + student.name + ' - Cópia detectada');
+      saveData();
     }
   });
 
-  socket.on('paste_detected', ({ studentId, timestamp }) => {
+  socket.on('paste_detected', ({ studentId }) => {
     const student = students.get(studentId);
     if(student && !student.finished) {
       student.pasteCount = (student.pasteCount || 0) + 1;
       student.warnings.push({
         type: 'Cola detectada',
-        timestamp: timestamp || new Date().toISOString(),
+        timestamp: new Date().toISOString(),
         count: student.pasteCount
       });
       students.set(studentId, student);
       io.emit('student_warning', { studentId, warning: 'Cola detectada' });
       console.log('📄 ' + student.name + ' - Cola detectada');
+      saveData();
     }
   });
 
@@ -1643,6 +1824,7 @@ io.on('connection', (socket) => {
     student.completionCode = completionCode;
     student.totalTime = totalTime;
     student.answers = studentAnswers;
+    student.correctCount = correctCount;
 
     const savedAnswers = {};
     Object.keys(studentAnswers).forEach(qId => {
@@ -1665,6 +1847,7 @@ io.on('connection', (socket) => {
     });
 
     console.log('✅ ' + student.name + ' finalizou | Código: ' + completionCode);
+    saveData();
   });
 
   socket.on('disconnect', () => {
@@ -1675,7 +1858,7 @@ io.on('connection', (socket) => {
         student.online = false;
         const session = sessions.get(currentStudentId);
         if(session) {
-          student.totalTime = Math.round((Date.now() - session.startTime) / 1000);
+          student.totalTime = Math.round((Date.now() - new Date(session.startTime).getTime()) / 1000);
         }
         students.set(currentStudentId, student);
         io.emit('student_status_change', { 
@@ -1684,6 +1867,7 @@ io.on('connection', (socket) => {
           name: student.name 
         });
         console.log('❌ ' + student.name + ' desconectado');
+        saveData();
       }
     }
   });
@@ -1705,14 +1889,11 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('\n   Para adicionar mais duplas, edite a constante DUPLAS');
   console.log('   no arquivo server.js');
   console.log('\n● Funcionalidades:');
+  console.log('   ✓ Login Professor (cima) + Login Aluno (baixo) na mesma página');
   console.log('   ✓ Validação de aluno + dupla');
-  console.log('   ✓ Case insensitive (maiúsculo/minúsculo)');
-  console.log('   ✓ 10 questões de matemática');
-  console.log('   ✓ Uma questão por vez');
-  console.log('   ✓ Botão Avançar');
-  console.log('   ✓ Correção automática');
-  console.log('   ✓ Detecção de cópia/cola');
-  console.log('   ✓ Detecção de respostas rápidas');
-  console.log('   ✓ Código de finalização');
-  console.log('   ✓ Bloqueio de reentrada\n');
+  console.log('   ✓ Case insensitive');
+  console.log('   ✓ Alternativa fica marcada ao clicar');
+  console.log('   ✓ Dados permanentes (salvos em arquivo)');
+  console.log('   ✓ Professor vê: resposta, certo/errado, tempo, alertas');
+  console.log('   ✓ Uma chance por dupla (bloqueio após finalizar)\n');
 });
