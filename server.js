@@ -15,7 +15,6 @@ const PORT = process.env.PORT || 3000;
 // ========== ARMAZENAMENTO PERSISTENTE ==========
 const DATA_FILE = './data.json';
 
-// Carregar dados salvos
 let students = new Map();
 let answers = new Map();
 let sessions = new Map();
@@ -48,15 +47,11 @@ function saveData() {
   }
 }
 
-// Carregar dados ao iniciar
 loadData();
-
-// Salvar a cada 30 segundos
 setInterval(saveData, 30000);
 
 // ============================================================
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-// >>>>>>>> CADASTRE AS DUPLAS AQUI >>>>>>>>>>>>>>>>>>>>>>>>>>>
+// >>>>>>>>>> CADASTRE AS DUPLAS AQUI >>>>>>>>>>>>>>>>>>>>>>>>>
 // ============================================================
 const DUPLAS = [
   {
@@ -169,8 +164,8 @@ app.get('/', (req, res) => {
   const ua = req.headers['user-agent'].toLowerCase();
   const isMobile = ua.includes('mobile') || ua.includes('android') || ua.includes('iphone');
 
+  // ========== PÁGINA DO CELULAR (ALUNO) ==========
   if (isMobile) {
-    // ========== PÁGINA DO CELULAR (ALUNO) ==========
     res.send(`<!DOCTYPE html>
 <html>
 <head>
@@ -204,10 +199,6 @@ app.get('/', (req, res) => {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
         @keyframes slideIn {
             from { opacity: 0; transform: translateX(-20px); }
             to { opacity: 1; transform: translateX(0); }
@@ -221,14 +212,12 @@ app.get('/', (req, res) => {
             padding-bottom: 20px;
             border-bottom: 2px solid rgba(192, 132, 192, 0.3);
             margin-bottom: 25px;
-            animation: slideIn 0.5s ease-out;
         }
         .header h1 {
             font-weight: 300;
             letter-spacing: 3px;
             font-size: 24px;
             color: #e8c8e8;
-            text-shadow: 0 0 30px rgba(192, 132, 192, 0.2);
         }
         .header .sub {
             font-size: 13px;
@@ -243,10 +232,7 @@ app.get('/', (req, res) => {
             background: linear-gradient(90deg, transparent, #c084c0, transparent);
             margin: 10px auto 0;
         }
-        .login-area {
-            padding: 10px 0;
-            animation: slideIn 0.6s ease-out;
-        }
+        .login-area { padding: 10px 0; }
         .login-area h2 {
             text-align: center;
             font-weight: 300;
@@ -280,9 +266,6 @@ app.get('/', (req, res) => {
             border-color: #c084c0;
             box-shadow: 0 0 30px rgba(192, 132, 192, 0.1);
         }
-        .form-group input::placeholder {
-            color: rgba(90, 58, 90, 0.6);
-        }
         .login-btn {
             width: 100%;
             padding: 16px;
@@ -297,22 +280,9 @@ app.get('/', (req, res) => {
             transition: all 0.4s;
             margin-top: 10px;
         }
-        .login-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 40px rgba(192, 132, 192, 0.3);
-        }
-        .login-btn:disabled {
-            background: #3a2a3a;
-            color: #5a4a5a;
-            cursor: not-allowed;
-        }
-        .error-msg {
-            color: #ff6666;
-            text-align: center;
-            margin-top: 12px;
-            font-size: 13px;
-            animation: fadeIn 0.3s ease-out;
-        }
+        .login-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(192, 132, 192, 0.3); }
+        .login-btn:disabled { background: #3a2a3a; color: #5a4a5a; cursor: not-allowed; }
+        .error-msg { color: #ff6666; text-align: center; margin-top: 12px; font-size: 13px; }
         .exam-area { display: none; }
         .question-container {
             background: rgba(18, 10, 18, 0.8);
@@ -320,7 +290,6 @@ app.get('/', (req, res) => {
             border-radius: 16px;
             padding: 25px;
             margin-bottom: 15px;
-            animation: slideIn 0.4s ease-out;
         }
         .question-number {
             font-size: 12px;
@@ -376,10 +345,7 @@ app.get('/', (req, res) => {
             opacity: 0.5;
             color: #b888b8;
         }
-        .status-bar .timer {
-            font-weight: 600;
-            color: #d4a0d4;
-        }
+        .status-bar .timer { font-weight: 600; color: #d4a0d4; }
         .progress {
             text-align: center;
             padding: 12px;
@@ -402,15 +368,8 @@ app.get('/', (req, res) => {
             transition: all 0.4s;
             margin-top: 10px;
         }
-        .nav-btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 40px rgba(192, 132, 192, 0.3);
-        }
-        .nav-btn:disabled {
-            background: #3a2a3a;
-            color: #5a4a5a;
-            cursor: not-allowed;
-        }
+        .nav-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(192, 132, 192, 0.3); }
+        .nav-btn:disabled { background: #3a2a3a; color: #5a4a5a; cursor: not-allowed; }
         .finish-btn {
             width: 100%;
             padding: 16px;
@@ -426,27 +385,14 @@ app.get('/', (req, res) => {
             margin-top: 15px;
             display: none;
         }
-        .finish-btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 40px rgba(204, 102, 102, 0.3);
-        }
+        .finish-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(204, 102, 102, 0.3); }
         .completion-area {
             display: none;
             text-align: center;
             padding: 30px 0;
-            animation: fadeIn 0.6s ease-out;
         }
-        .completion-area .icon {
-            font-size: 56px;
-            color: #c084c0;
-            margin-bottom: 15px;
-        }
-        .completion-area h2 {
-            font-weight: 300;
-            letter-spacing: 3px;
-            color: #e8c8e8;
-            margin-bottom: 10px;
-        }
+        .completion-area .icon { font-size: 56px; color: #c084c0; margin-bottom: 15px; }
+        .completion-area h2 { font-weight: 300; letter-spacing: 3px; color: #e8c8e8; margin-bottom: 10px; }
         .completion-area .code {
             font-size: 28px;
             letter-spacing: 6px;
@@ -458,18 +404,8 @@ app.get('/', (req, res) => {
             color: #d4a0d4;
             animation: glow 2s infinite;
         }
-        .completion-area .info {
-            opacity: 0.4;
-            font-size: 13px;
-            letter-spacing: 1px;
-            margin: 8px 0;
-            color: #b888b8;
-        }
-        .completion-area .score {
-            font-size: 38px;
-            color: #c084c0;
-            margin: 15px 0;
-        }
+        .completion-area .info { opacity: 0.4; font-size: 13px; letter-spacing: 1px; margin: 8px 0; color: #b888b8; }
+        .completion-area .score { font-size: 38px; color: #c084c0; margin: 15px 0; }
         .warning {
             color: #ff6666;
             font-size: 12px;
@@ -481,24 +417,9 @@ app.get('/', (req, res) => {
             margin: 8px 0;
             display: none;
         }
-        .blocked-msg {
-            text-align: center;
-            padding: 40px 0;
-            color: #ff6666;
-            animation: fadeIn 0.5s ease-out;
-        }
-        .blocked-msg h2 {
-            font-weight: 300;
-            letter-spacing: 2px;
-            margin-bottom: 10px;
-        }
-        .dupla-info {
-            font-size: 13px;
-            opacity: 0.3;
-            letter-spacing: 1px;
-            color: #b888b8;
-            margin-top: 3px;
-        }
+        .blocked-msg { text-align: center; padding: 40px 0; color: #ff6666; }
+        .blocked-msg h2 { font-weight: 300; letter-spacing: 2px; margin-bottom: 10px; }
+        .dupla-info { font-size: 13px; opacity: 0.3; letter-spacing: 1px; color: #b888b8; margin-top: 3px; }
         .view-result-btn {
             width: 100%;
             padding: 14px;
@@ -513,14 +434,8 @@ app.get('/', (req, res) => {
             transition: all 0.4s;
             margin-top: 15px;
         }
-        .view-result-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 40px rgba(102, 136, 204, 0.3);
-        }
-        .result-area {
-            display: none;
-            animation: fadeIn 0.6s ease-out;
-        }
+        .view-result-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(102, 136, 204, 0.3); }
+        .result-area { display: none; }
         .result-item {
             display: flex;
             justify-content: space-between;
@@ -541,7 +456,6 @@ app.get('/', (req, res) => {
             <div class="decor"></div>
         </div>
 
-        <!-- Login -->
         <div id="loginArea" class="login-area">
             <h2>Identificação</h2>
             <div class="form-group">
@@ -556,7 +470,6 @@ app.get('/', (req, res) => {
             <div class="error-msg" id="loginError"></div>
         </div>
 
-        <!-- Prova -->
         <div id="examArea" class="exam-area">
             <div class="status-bar">
                 <span class="timer" id="timer">00:00</span>
@@ -569,7 +482,6 @@ app.get('/', (req, res) => {
             <button class="finish-btn" id="finishBtn">Finalizar Prova</button>
         </div>
 
-        <!-- Finalização -->
         <div id="completionArea" class="completion-area">
             <div class="icon">✦</div>
             <h2>Prova Finalizada</h2>
@@ -582,14 +494,12 @@ app.get('/', (req, res) => {
             <button class="login-btn" onclick="location.reload()" style="margin-top:10px;">Nova Prova</button>
         </div>
 
-        <!-- Resultados -->
         <div id="resultArea" class="result-area">
             <h2 style="text-align:center;font-weight:300;letter-spacing:2px;margin-bottom:15px;">Suas Respostas</h2>
             <div id="resultList"></div>
             <button class="login-btn" onclick="location.reload()" style="margin-top:15px;">Voltar</button>
         </div>
 
-        <!-- Bloqueado -->
         <div id="blockedArea" class="blocked-msg" style="display:none;">
             <h2>Acesso Bloqueado</h2>
             <p>Esta prova já foi finalizada.</p>
@@ -635,7 +545,7 @@ app.get('/', (req, res) => {
         const resultList = document.getElementById('resultList');
         const viewResultBtn = document.getElementById('viewResultBtn');
 
-        // Login
+        // ===== LOGIN =====
         loginBtn.onclick = () => {
             const name = document.getElementById('studentName').value.trim();
             const dupla = document.getElementById('studentDupla').value.trim();
@@ -658,7 +568,6 @@ app.get('/', (req, res) => {
             studentId = data.studentId;
             isLoggedIn = true;
             
-            // Verificar se já finalizou
             if(data.alreadyFinished) {
                 loginArea.style.display = 'none';
                 completionArea.style.display = 'block';
@@ -667,7 +576,6 @@ app.get('/', (req, res) => {
                 completionStats.textContent = 'Tempo total: ' + formatTime(data.totalTime || 0);
                 completionDupla.textContent = 'Dupla: ' + data.dupla;
                 viewResultBtn.style.display = 'block';
-                // Salvar respostas para ver depois
                 window.savedAnswers = data.allAnswers || {};
                 loginBtn.disabled = false;
                 loginBtn.textContent = 'Iniciar Prova';
@@ -696,7 +604,7 @@ app.get('/', (req, res) => {
             viewResultBtn.style.display = 'block';
         });
 
-        // Timer
+        // ===== TIMER =====
         function startTimer() {
             timerInterval = setInterval(() => {
                 elapsedSeconds++;
@@ -706,7 +614,7 @@ app.get('/', (req, res) => {
             }, 1000);
         }
 
-        // Render Question
+        // ===== RENDER QUESTION =====
         function renderQuestion(index) {
             if(index >= questionsData.length) {
                 finishBtn.style.display = 'block';
@@ -719,7 +627,6 @@ app.get('/', (req, res) => {
             selectedAnswer = null;
             questionStartTime = Date.now();
 
-            // Verificar se já respondeu essa questão
             const savedAnswer = answers[q.id] ? answers[q.id].answer : null;
 
             questionContainer.innerHTML = \`
@@ -744,13 +651,12 @@ app.get('/', (req, res) => {
             nextBtn.style.display = 'block';
             nextBtn.disabled = savedAnswer ? false : true;
 
-            // Se já respondeu, salva a resposta
             if(savedAnswer) {
                 selectedAnswer = savedAnswer;
             }
         }
 
-        // Select Answer
+        // ===== SELECT ANSWER =====
         function selectAnswer(answer, questionId, index) {
             const timeSpent = (Date.now() - questionStartTime) / 1000;
             
@@ -793,7 +699,7 @@ app.get('/', (req, res) => {
             });
         }
 
-        // Next Question
+        // ===== NEXT QUESTION =====
         nextBtn.onclick = () => {
             if(selectedAnswer === null) return;
             currentQuestion++;
@@ -807,7 +713,7 @@ app.get('/', (req, res) => {
             }
         };
 
-        // Finish Exam
+        // ===== FINISH EXAM =====
         finishBtn.onclick = () => {
             const totalQuestions = questionsData.length;
             const answered = Object.keys(answers).length;
@@ -855,7 +761,7 @@ app.get('/', (req, res) => {
             }
         };
 
-        // View Results
+        // ===== VIEW RESULTS =====
         viewResultBtn.onclick = () => {
             const savedAnswers = window.savedAnswers || {};
             const totalQuestions = questionsData.length;
@@ -885,7 +791,7 @@ app.get('/', (req, res) => {
             resultArea.style.display = 'block';
         };
 
-        // Generate Code
+        // ===== UTILITIES =====
         function generateCode() {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
             let code = '';
@@ -910,7 +816,7 @@ app.get('/', (req, res) => {
             }, 3000);
         }
 
-        // Copy/Paste Detection
+        // ===== COPY/PASTE DETECTION =====
         document.addEventListener('copy', () => {
             if(isLoggedIn && !isFinished) {
                 socket.emit('copy_detected', { studentId });
@@ -950,19 +856,15 @@ app.get('/', (req, res) => {
             padding: 20px;
         }
         .container { max-width: 1400px; margin: 0 auto; }
-        
-        /* Header */
         .header-main {
             text-align: center;
             padding: 15px 0 25px;
-            animation: fadeIn 0.6s ease-out;
         }
         .header-main h1 {
             font-weight: 300;
             font-size: 26px;
             letter-spacing: 4px;
             color: #e8c8e8;
-            text-shadow: 0 0 40px rgba(192, 132, 192, 0.15);
         }
         .header-main .sub {
             font-size: 13px;
@@ -978,7 +880,6 @@ app.get('/', (req, res) => {
             background: linear-gradient(90deg, transparent, #c084c0, transparent);
             margin: 10px auto 0;
         }
-        
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(15px); }
             to { opacity: 1; transform: translateY(0); }
@@ -987,20 +888,13 @@ app.get('/', (req, res) => {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-15px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-
-        /* Login Professor */
         .login-panel {
-            max-width: 420px;
+            max-width: 500px;
             margin: 0 auto 20px;
             background: rgba(18, 10, 18, 0.9);
             border: 1px solid rgba(192, 132, 192, 0.3);
             border-radius: 16px;
             padding: 25px 30px;
-            animation: slideIn 0.5s ease-out;
         }
         .login-panel h2 {
             text-align: center;
@@ -1048,25 +942,29 @@ app.get('/', (req, res) => {
             cursor: pointer;
             transition: all 0.4s;
         }
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 40px rgba(192, 132, 192, 0.25);
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(192, 132, 192, 0.25); }
+        .btn-aluno {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #6688cc, #4466aa);
+            color: #1a0a1a;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 3px;
+            cursor: pointer;
+            transition: all 0.4s;
+            margin-top: 8px;
         }
-        .error-msg {
-            color: #ff6666;
-            text-align: center;
-            margin-top: 10px;
-            font-size: 12px;
-            animation: fadeIn 0.3s ease-out;
-        }
-
-        /* Main Grid */
+        .btn-aluno:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(102, 136, 204, 0.25); }
+        .btn-aluno:disabled { background: #3a2a3a; color: #5a4a5a; cursor: not-allowed; }
+        .error-msg { color: #ff6666; text-align: center; margin-top: 10px; font-size: 12px; }
         .main-grid {
             display: grid;
             grid-template-columns: 320px 1fr;
             gap: 20px;
-            height: calc(100vh - 300px);
-            animation: fadeIn 0.6s ease-out;
+            height: calc(100vh - 340px);
         }
         .panel {
             background: rgba(18, 10, 18, 0.9);
@@ -1096,8 +994,6 @@ app.get('/', (req, res) => {
             opacity: 0.3;
             color: #b888b8;
         }
-
-        /* Student Items */
         .student-item {
             padding: 10px 12px;
             border: 1px solid rgba(192, 132, 192, 0.2);
@@ -1106,15 +1002,8 @@ app.get('/', (req, res) => {
             cursor: pointer;
             transition: all 0.3s;
         }
-        .student-item:hover {
-            background: rgba(26, 10, 26, 0.8);
-            border-color: rgba(192, 132, 192, 0.4);
-        }
-        .student-item.active {
-            background: rgba(26, 10, 26, 0.9);
-            border-color: #c084c0;
-            box-shadow: 0 0 30px rgba(192, 132, 192, 0.05);
-        }
+        .student-item:hover { background: rgba(26, 10, 26, 0.8); border-color: rgba(192, 132, 192, 0.4); }
+        .student-item.active { background: rgba(26, 10, 26, 0.9); border-color: #c084c0; }
         .student-item .name { font-size: 14px; color: #e8c8e8; }
         .student-item .dupla { font-size: 11px; opacity: 0.4; color: #b888b8; margin-top: 2px; }
         .student-item .status {
@@ -1128,8 +1017,6 @@ app.get('/', (req, res) => {
         .status.online { background: #66cc88; color: #1a0a1a; }
         .status.offline { background: rgba(58, 42, 58, 0.6); color: #5a4a5a; }
         .status.finished { background: #cc6666; color: #1a0a1a; }
-
-        /* Details */
         .detail-item {
             padding: 6px 0;
             border-bottom: 1px solid rgba(192, 132, 192, 0.08);
@@ -1145,14 +1032,8 @@ app.get('/', (req, res) => {
         .detail-item .correct { color: #66cc88; font-weight: bold; }
         .detail-item .wrong { color: #cc6666; font-weight: bold; }
         .detail-item .warning-text { color: #ff8844; }
-        .detail-item .time-badge {
-            font-size: 9px;
-            opacity: 0.3;
-            margin-left: 8px;
-        }
+        .detail-item .time-badge { font-size: 9px; opacity: 0.3; margin-left: 8px; }
         .no-data { text-align: center; opacity: 0.2; padding: 20px; font-size: 12px; letter-spacing: 2px; color: #b888b8; }
-
-        /* Stats */
         .stats-grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr 1fr;
@@ -1166,19 +1047,8 @@ app.get('/', (req, res) => {
             border-radius: 8px;
             text-align: center;
         }
-        .stats-grid .stat .number {
-            font-size: 20px;
-            letter-spacing: 2px;
-            color: #e8c8e8;
-        }
-        .stats-grid .stat .label {
-            font-size: 7px;
-            opacity: 0.3;
-            letter-spacing: 1px;
-            margin-top: 2px;
-            color: #b888b8;
-        }
-
+        .stats-grid .stat .number { font-size: 20px; letter-spacing: 2px; color: #e8c8e8; }
+        .stats-grid .stat .label { font-size: 7px; opacity: 0.3; letter-spacing: 1px; margin-top: 2px; color: #b888b8; }
         .code-display {
             background: rgba(26, 10, 26, 0.8);
             padding: 10px;
@@ -1191,7 +1061,6 @@ app.get('/', (req, res) => {
             color: #d4a0d4;
             animation: pulse 2s infinite;
         }
-
         .badge {
             background: #cc6666;
             color: #1a0a1a;
@@ -1204,13 +1073,17 @@ app.get('/', (req, res) => {
         .badge.warning { background: #ff8844; }
         .badge.success { background: #66cc88; }
         .badge.info { background: #6688cc; }
-
-        .aluno-login-area {
-            margin-top: 20px;
+        .divider {
+            border: none;
+            border-top: 1px solid rgba(192, 132, 192, 0.2);
+            margin: 15px 0;
+        }
+        .aluno-section {
+            margin-top: 15px;
             padding-top: 15px;
             border-top: 1px solid rgba(192, 132, 192, 0.2);
         }
-        .aluno-login-area h3 {
+        .aluno-section h3 {
             text-align: center;
             font-weight: 300;
             letter-spacing: 2px;
@@ -1219,33 +1092,6 @@ app.get('/', (req, res) => {
             color: #b888b8;
             margin-bottom: 12px;
         }
-        .aluno-login-area .form-group input {
-            background: rgba(18, 10, 18, 0.9);
-        }
-        .btn-aluno {
-            width: 100%;
-            padding: 10px;
-            background: linear-gradient(135deg, #6688cc, #4466aa);
-            color: #1a0a1a;
-            border: none;
-            border-radius: 10px;
-            font-size: 13px;
-            font-weight: 600;
-            letter-spacing: 2px;
-            cursor: pointer;
-            transition: all 0.4s;
-            margin-top: 8px;
-        }
-        .btn-aluno:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 40px rgba(102, 136, 204, 0.25);
-        }
-        .btn-aluno:disabled {
-            background: #3a2a3a;
-            color: #5a4a5a;
-            cursor: not-allowed;
-        }
-
         @media (max-width: 900px) {
             .main-grid { grid-template-columns: 1fr; height: auto; }
             .panel { max-height: 400px; }
@@ -1261,18 +1107,19 @@ app.get('/', (req, res) => {
             <div class="decor"></div>
         </div>
 
-        <!-- Login do Professor -->
-        <div id="teacherLogin" class="login-panel">
+        <!-- Login Unificado (Professor + Aluno) -->
+        <div id="loginUnified" class="login-panel">
             <h2>Professor - Acesso Restrito</h2>
             <div class="form-group">
                 <label>Senha</label>
                 <input type="password" id="teacherPassword" placeholder="Digite a senha">
             </div>
-            <button class="btn-primary" id="teacherLoginBtn">Acessar</button>
+            <button class="btn-primary" id="teacherLoginBtn">Acessar como Professor</button>
             <div class="error-msg" id="teacherLoginError"></div>
             
-            <!-- Login do Aluno (dentro do painel do professor) -->
-            <div class="aluno-login-area">
+            <hr class="divider">
+            
+            <div class="aluno-section">
                 <h3>Aluno - Acessar Prova</h3>
                 <div class="form-group">
                     <label>Nome Completo</label>
@@ -1287,7 +1134,7 @@ app.get('/', (req, res) => {
             </div>
         </div>
 
-        <!-- Painel Principal -->
+        <!-- Painel do Professor -->
         <div id="mainPanel" style="display:none;">
             <div class="main-grid">
                 <div class="panel">
@@ -1313,7 +1160,7 @@ app.get('/', (req, res) => {
         let currentStudentId = null;
         let isLoggedIn = false;
 
-        const teacherLogin = document.getElementById('teacherLogin');
+        const loginUnified = document.getElementById('loginUnified');
         const mainPanel = document.getElementById('mainPanel');
         const teacherPassword = document.getElementById('teacherPassword');
         const teacherLoginBtn = document.getElementById('teacherLoginBtn');
@@ -1321,7 +1168,6 @@ app.get('/', (req, res) => {
         const studentList = document.getElementById('studentList');
         const studentDetails = document.getElementById('studentDetails');
         
-        // Aluno login dentro do PC
         const alunoName = document.getElementById('alunoName');
         const alunoDupla = document.getElementById('alunoDupla');
         const alunoLoginBtn = document.getElementById('alunoLoginBtn');
@@ -1335,9 +1181,10 @@ app.get('/', (req, res) => {
             if(!pass) { teacherLoginError.textContent = 'Digite a senha'; return; }
             if(pass === TEACHER_PASSWORD) {
                 isLoggedIn = true;
-                teacherLogin.style.display = 'none';
+                loginUnified.style.display = 'none';
                 mainPanel.style.display = 'block';
                 loadStudents();
+                teacherLoginError.textContent = '';
             } else {
                 teacherLoginError.textContent = 'Senha incorreta';
                 teacherPassword.value = '';
@@ -1360,16 +1207,18 @@ app.get('/', (req, res) => {
             }
 
             alunoLoginBtn.disabled = true;
-            alunoLoginBtn.textContent = 'Conectando...';
+            alunoLoginBtn.textContent = 'Abrindo Prova...';
             alunoLoginError.textContent = '';
 
-            // Abrir em nova janela para o aluno
+            // Abrir a prova em uma nova aba/janela
             window.open('/', '_blank');
             
             setTimeout(() => {
                 alunoLoginBtn.disabled = false;
                 alunoLoginBtn.textContent = 'Iniciar Prova';
-            }, 2000);
+                alunoName.value = '';
+                alunoDupla.value = '';
+            }, 3000);
         };
 
         // ===== CARREGAR ALUNOS =====
@@ -1429,11 +1278,11 @@ app.get('/', (req, res) => {
 
             const totalAnswers = student.answers ? Object.keys(student.answers).length : 0;
             const correctAnswers = student.answers ? 
-                Object.values(student.answers).filter(a => a.isCorrect).length : 0;
+                Object.values(student.answers).filter(a => a && a.isCorrect).length : 0;
             const totalTime = student.totalTime || 0;
 
             let answersHtml = '';
-            if(student.answers) {
+            if(student.answers && Object.keys(student.answers).length > 0) {
                 const sorted = Object.keys(student.answers).sort((a,b) => parseInt(a) - parseInt(b));
                 answersHtml = sorted.map(qId => {
                     const ans = student.answers[qId];
@@ -1452,6 +1301,8 @@ app.get('/', (req, res) => {
                         </div>
                     \`;
                 }).join('');
+            } else {
+                answersHtml = '<div class="no-data" style="font-size:11px;">Aguardando respostas...</div>';
             }
 
             const warnings = student.warnings || [];
@@ -1462,7 +1313,7 @@ app.get('/', (req, res) => {
                         <span class="warning-text">\${new Date(w.timestamp).toLocaleTimeString()}</span>
                     </div>
                 \`).join('') : 
-                '<div class="no-data" style="font-size:10px;">Nenhum alerta</div>';
+                '<div class="no-data" style="font-size:11px;">Nenhum alerta</div>';
 
             studentDetails.innerHTML = \`
                 <div style="margin-bottom:12px;">
@@ -1496,7 +1347,7 @@ app.get('/', (req, res) => {
                 </div>
 
                 <h3>Respostas</h3>
-                \${answersHtml || '<div class="no-data">Aguardando respostas</div>'}
+                \${answersHtml}
 
                 <h3>Alertas</h3>
                 \${warningsHtml}
@@ -1505,35 +1356,28 @@ app.get('/', (req, res) => {
 
         // ===== SOCKET EVENTS =====
         socket.on('new_student', () => { if(isLoggedIn) loadStudents(); });
-        socket.on('student_answer', () => { if(isLoggedIn) loadStudents(); });
+        socket.on('student_answer', () => { 
+            if(isLoggedIn) {
+                loadStudents();
+                if(currentStudentId) {
+                    fetch('/api/students/' + currentStudentId)
+                        .then(r => r.json())
+                        .then(s => renderStudentDetails(s));
+                }
+            }
+        });
         socket.on('student_warning', () => { if(isLoggedIn) loadStudents(); });
-        socket.on('student_finished', () => { if(isLoggedIn) loadStudents(); });
+        socket.on('student_finished', () => { 
+            if(isLoggedIn) {
+                loadStudents();
+                if(currentStudentId) {
+                    fetch('/api/students/' + currentStudentId)
+                        .then(r => r.json())
+                        .then(s => renderStudentDetails(s));
+                }
+            }
+        });
         socket.on('student_status_change', () => { if(isLoggedIn) loadStudents(); });
-
-        // Atualizar detalhes quando houver mudança
-        socket.on('student_answer', (data) => {
-            if(isLoggedIn && currentStudentId === data.studentId) {
-                fetch('/api/students/' + data.studentId)
-                    .then(r => r.json())
-                    .then(s => renderStudentDetails(s));
-            }
-        });
-
-        socket.on('student_warning', (data) => {
-            if(isLoggedIn && currentStudentId === data.studentId) {
-                fetch('/api/students/' + data.studentId)
-                    .then(r => r.json())
-                    .then(s => renderStudentDetails(s));
-            }
-        });
-
-        socket.on('student_finished', (data) => {
-            if(isLoggedIn && currentStudentId === data.studentId) {
-                fetch('/api/students/' + data.studentId)
-                    .then(r => r.json())
-                    .then(s => renderStudentDetails(s));
-            }
-        });
 
         if(isLoggedIn) loadStudents();
     </script>
@@ -1673,7 +1517,6 @@ io.on('connection', (socket) => {
       }
     }
 
-    // Se já finalizou, retorna os dados para visualização
     if(existingStudent && existingStudent.finished) {
       socket.emit('login_success', {
         studentId: existingStudent.id,
@@ -1777,7 +1620,7 @@ io.on('connection', (socket) => {
 
     students.set(studentId, student);
     io.emit('student_answer', { studentId, questionId, answer, isCorrect });
-    console.log('📝 ' + student.name + ' - Q' + questionId + ': ' + answer);
+    console.log('📝 ' + student.name + ' - Q' + questionId + ': ' + answer + ' (' + (isCorrect ? '✓' : '✗') + ')');
     saveData();
   });
 
@@ -1846,7 +1689,7 @@ io.on('connection', (socket) => {
       dupla: studentDupla
     });
 
-    console.log('✅ ' + student.name + ' finalizou | Código: ' + completionCode);
+    console.log('✅ ' + student.name + ' finalizou | Código: ' + completionCode + ' | Acertos: ' + correctCount + '/10');
     saveData();
   });
 
@@ -1889,11 +1732,11 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('\n   Para adicionar mais duplas, edite a constante DUPLAS');
   console.log('   no arquivo server.js');
   console.log('\n● Funcionalidades:');
-  console.log('   ✓ Login Professor (cima) + Login Aluno (baixo) na mesma página');
-  console.log('   ✓ Validação de aluno + dupla');
-  console.log('   ✓ Case insensitive');
+  console.log('   ✓ Login Professor + Aluno na mesma página');
+  console.log('   ✓ Validação de aluno + dupla (case insensitive)');
   console.log('   ✓ Alternativa fica marcada ao clicar');
-  console.log('   ✓ Dados permanentes (salvos em arquivo)');
+  console.log('   ✓ Dados permanentes (salvos em data.json)');
   console.log('   ✓ Professor vê: resposta, certo/errado, tempo, alertas');
-  console.log('   ✓ Uma chance por dupla (bloqueio após finalizar)\n');
+  console.log('   ✓ Uma chance por dupla (bloqueio após finalizar)');
+  console.log('   ✓ Aluno pode fazer prova pelo PC ou Celular\n');
 });
