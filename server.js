@@ -140,14 +140,24 @@ function getDuplaByAluno(nome) {
   return null;
 }
 
+function getDuplaByNome(nomeDupla) {
+  const nomeNormalizado = normalizeText(nomeDupla);
+  for (const dupla of DUPLAS) {
+    if (normalizeText(dupla.nome) === nomeNormalizado) {
+      return dupla;
+    }
+  }
+  return null;
+}
+
 // ========== ROTAS ==========
 
 app.get('/', (req, res) => {
   const ua = req.headers['user-agent'].toLowerCase();
   const isMobile = ua.includes('mobile') || ua.includes('android') || ua.includes('iphone');
 
-  // ========== PÁGINA DO ALUNO ==========
   if (isMobile) {
+    // ========== PÁGINA DO ALUNO ==========
     res.send(`<!DOCTYPE html>
 <html>
 <head>
@@ -510,15 +520,6 @@ app.get('/', (req, res) => {
             letter-spacing: 2px;
             margin-bottom: 10px;
         }
-        .status-dot {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            margin-right: 6px;
-            animation: pulse 1.5s infinite;
-        }
-        .status-dot.online { background: #66cc88; }
         .dupla-info {
             font-size: 13px;
             opacity: 0.3;
@@ -536,7 +537,6 @@ app.get('/', (req, res) => {
             <div class="decor"></div>
         </div>
 
-        <!-- Login -->
         <div id="loginArea" class="login-area">
             <h2>Identificação</h2>
             <div class="form-group">
@@ -545,7 +545,7 @@ app.get('/', (req, res) => {
             </div>
             <div class="form-group">
                 <label>Dupla</label>
-                <input type="text" id="studentDupla" placeholder="Nome da sua dupla">
+                <input type="text" id="studentDupla" placeholder="Ex: Dupla 1, Dupla 2, etc">
             </div>
             <button class="login-btn" id="loginBtn">
                 <span id="loginText">Iniciar Prova</span>
@@ -554,7 +554,6 @@ app.get('/', (req, res) => {
             <div class="error-msg" id="loginError"></div>
         </div>
 
-        <!-- Prova -->
         <div id="examArea" class="exam-area">
             <div class="status-bar">
                 <span class="timer" id="timer">00:00</span>
@@ -567,7 +566,6 @@ app.get('/', (req, res) => {
             <button class="finish-btn" id="finishBtn">Finalizar Prova</button>
         </div>
 
-        <!-- Finalização -->
         <div id="completionArea" class="completion-area">
             <div class="icon">✦</div>
             <h2>Prova Finalizada</h2>
@@ -579,7 +577,6 @@ app.get('/', (req, res) => {
             <button class="login-btn" onclick="location.reload()" style="margin-top:25px;">Nova Prova</button>
         </div>
 
-        <!-- Bloqueado -->
         <div id="blockedArea" class="blocked-msg" style="display:none;">
             <h2>Acesso Bloqueado</h2>
             <p>Esta prova já foi finalizada.</p>
@@ -603,7 +600,6 @@ app.get('/', (req, res) => {
         let isFinished = false;
         let selectedAnswer = null;
 
-        // Elementos
         const loginArea = document.getElementById('loginArea');
         const examArea = document.getElementById('examArea');
         const completionArea = document.getElementById('completionArea');
@@ -624,7 +620,6 @@ app.get('/', (req, res) => {
         const scoreDisplay = document.getElementById('scoreDisplay');
         const completionDupla = document.getElementById('completionDupla');
 
-        // ===== LOGIN =====
         loginBtn.onclick = () => {
             const name = document.getElementById('studentName').value.trim();
             const dupla = document.getElementById('studentDupla').value.trim();
@@ -670,7 +665,6 @@ app.get('/', (req, res) => {
             blockedArea.style.display = 'block';
         });
 
-        // ===== TIMER =====
         function startTimer() {
             timerInterval = setInterval(() => {
                 elapsedSeconds++;
@@ -680,7 +674,6 @@ app.get('/', (req, res) => {
             }, 1000);
         }
 
-        // ===== RENDER QUESTION =====
         function renderQuestion(index) {
             const questionsData = ${JSON.stringify(questions)};
             if(index >= questionsData.length) {
@@ -714,7 +707,6 @@ app.get('/', (req, res) => {
             nextBtn.disabled = true;
         }
 
-        // ===== SELECT ANSWER =====
         function selectAnswer(answer, questionId, index) {
             const timeSpent = (Date.now() - questionStartTime) / 1000;
             
@@ -757,7 +749,6 @@ app.get('/', (req, res) => {
             });
         }
 
-        // ===== NEXT QUESTION =====
         nextBtn.onclick = () => {
             if(selectedAnswer === null) return;
             currentQuestion++;
@@ -771,7 +762,6 @@ app.get('/', (req, res) => {
             }
         };
 
-        // ===== FINISH EXAM =====
         finishBtn.onclick = () => {
             const totalQuestions = ${JSON.stringify(questions)}.length;
             const answered = Object.keys(answers).length;
@@ -818,7 +808,6 @@ app.get('/', (req, res) => {
             }
         };
 
-        // ===== GENERATE CODE =====
         function generateCode() {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
             let code = '';
@@ -835,7 +824,6 @@ app.get('/', (req, res) => {
             return String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
         }
 
-        // ===== WARNING =====
         function showWarning(msg) {
             warning.textContent = msg;
             warning.style.display = 'block';
@@ -844,7 +832,6 @@ app.get('/', (req, res) => {
             }, 3000);
         }
 
-        // ===== DETECT COPY/PASTE =====
         document.addEventListener('copy', (e) => {
             if(isLoggedIn && !isFinished) {
                 socket.emit('copy_detected', { studentId, timestamp: new Date().toISOString() });
@@ -859,7 +846,6 @@ app.get('/', (req, res) => {
             }
         });
 
-        // ===== SOCKET EVENTS =====
         socket.on('force_disconnect', () => {
             alert('Conexão encerrada');
             location.reload();
@@ -1151,7 +1137,6 @@ app.get('/', (req, res) => {
             <div class="decor"></div>
         </div>
 
-        <!-- Login do Professor -->
         <div id="teacherLogin" class="login-panel">
             <h2>Acesso Restrito</h2>
             <div class="form-group">
@@ -1162,10 +1147,8 @@ app.get('/', (req, res) => {
             <div class="error-msg" id="teacherLoginError"></div>
         </div>
 
-        <!-- Painel Principal -->
         <div id="mainPanel" style="display:none;">
             <div class="main-grid">
-                <!-- Lista de Alunos -->
                 <div class="panel">
                     <h2>Alunos Ativos</h2>
                     <div id="studentList">
@@ -1173,7 +1156,6 @@ app.get('/', (req, res) => {
                     </div>
                 </div>
 
-                <!-- Detalhes do Aluno -->
                 <div class="panel">
                     <h2>Detalhes do Aluno</h2>
                     <div id="studentDetails">
@@ -1200,7 +1182,6 @@ app.get('/', (req, res) => {
 
         const TEACHER_PASSWORD = "heber123456";
 
-        // ===== LOGIN DO PROFESSOR =====
         teacherLoginBtn.onclick = () => {
             const pass = teacherPassword.value.trim();
             if(!pass) { teacherLoginError.textContent = 'Digite a senha'; return; }
@@ -1220,12 +1201,15 @@ app.get('/', (req, res) => {
             if(e.key === 'Enter') teacherLoginBtn.click();
         });
 
-        // ===== CARREGAR ALUNOS =====
         async function loadStudents() {
             if(!isLoggedIn) return;
-            const res = await fetch('/api/students');
-            const students = await res.json();
-            renderStudents(students);
+            try {
+                const res = await fetch('/api/students');
+                const students = await res.json();
+                renderStudents(students);
+            } catch(e) {
+                console.log('Erro ao carregar alunos');
+            }
         }
 
         function renderStudents(students) {
@@ -1251,14 +1235,17 @@ app.get('/', (req, res) => {
             \`).join('');
         }
 
-        // ===== SELECIONAR ALUNO =====
         async function selectStudent(studentId) {
             if(!isLoggedIn) return;
             currentStudentId = studentId;
             loadStudents();
-            const res = await fetch('/api/students/' + studentId);
-            const student = await res.json();
-            renderStudentDetails(student);
+            try {
+                const res = await fetch('/api/students/' + studentId);
+                const student = await res.json();
+                renderStudentDetails(student);
+            } catch(e) {
+                console.log('Erro ao carregar detalhes');
+            }
         }
 
         function renderStudentDetails(student) {
@@ -1276,7 +1263,6 @@ app.get('/', (req, res) => {
                 const sorted = Object.keys(student.answers).sort((a,b) => parseInt(a) - parseInt(b));
                 answersHtml = sorted.map(qId => {
                     const ans = student.answers[qId];
-                    const question = ${JSON.stringify(questions)}.find(q => q.id === parseInt(qId));
                     const isCorrect = ans && ans.isCorrect;
                     const isFast = ans && ans.timeSpent < 5;
                     
@@ -1304,13 +1290,10 @@ app.get('/', (req, res) => {
                 \`).join('') : 
                 '<div class="no-data" style="font-size:11px;">Nenhum alerta</div>';
 
-            // Verifica se o aluno tem dupla cadastrada
-            const duplaInfo = student.dupla ? student.dupla : 'Não informada';
-
             studentDetails.innerHTML = \`
                 <div style="margin-bottom:15px;">
                     <div style="font-size:20px;letter-spacing:2px;color:#e8c8e8;">\${student.name}</div>
-                    <div style="font-size:13px;opacity:0.4;">Dupla: \${duplaInfo}</div>
+                    <div style="font-size:13px;opacity:0.4;">Dupla: \${student.dupla}</div>
                     <div style="font-size:12px;opacity:0.3;">Login: \${new Date(student.loginTime).toLocaleString()}</div>
                     \${student.completionCode ? \`
                         <div class="code-display">\${student.completionCode}</div>
@@ -1346,7 +1329,6 @@ app.get('/', (req, res) => {
             \`;
         }
 
-        // ===== SOCKET EVENTS =====
         socket.on('new_student', (data) => {
             if(isLoggedIn) loadStudents();
         });
@@ -1388,7 +1370,6 @@ app.get('/', (req, res) => {
             if(isLoggedIn) loadStudents();
         });
 
-        // ===== INICIALIZAR =====
         if(isLoggedIn) loadStudents();
     </script>
 </body>
@@ -1398,8 +1379,6 @@ app.get('/', (req, res) => {
 
 // ========== API REST ==========
 app.use(express.json());
-
-// ===== ALUNOS =====
 
 app.post('/api/students', (req, res) => {
   const { name, dupla } = req.body;
@@ -1426,7 +1405,6 @@ app.post('/api/students', (req, res) => {
     }
   }
 
-  // Verifica se já existe um aluno com esse nome
   let existingStudent = null;
   for(let [id, s] of students) {
     if(s.name === nameNormalizado) {
@@ -1499,20 +1477,25 @@ io.on('connection', (socket) => {
   console.log('Cliente conectado:', socket.id);
   let currentStudentId = null;
 
-  // ===== LOGIN DO ALUNO =====
   socket.on('student_login', ({ name, dupla }) => {
     const nameNormalizado = normalizeText(name);
     const duplaNormalizada = normalizeText(dupla);
 
+    console.log('Tentativa de login:', nameNormalizado, '| Dupla:', duplaNormalizada);
+
     // Verifica se o aluno está cadastrado
     const duplaEncontrada = getDuplaByAluno(nameNormalizado);
     if(!duplaEncontrada) {
+      console.log('❌ Aluno não cadastrado:', nameNormalizado);
       socket.emit('login_error', { error: 'Aluno não cadastrado' });
       return;
     }
 
+    console.log('✅ Aluno encontrado na dupla:', duplaEncontrada.nome);
+
     // Verifica se a dupla informada corresponde à dupla do aluno
     if(normalizeText(duplaEncontrada.nome) !== duplaNormalizada) {
+      console.log('❌ Dupla incorreta. Esperado:', duplaEncontrada.nome, 'Recebido:', duplaNormalizada);
       socket.emit('login_error', { error: 'Dupla incorreta para este aluno' });
       return;
     }
@@ -1538,7 +1521,6 @@ io.on('connection', (socket) => {
       studentId = existingStudent.id;
       student = existingStudent;
     } else {
-      // Cria novo aluno
       studentId = uuidv4();
       student = {
         id: studentId,
@@ -1561,7 +1543,6 @@ io.on('connection', (socket) => {
       io.emit('new_student', { studentId, name: nameNormalizado, dupla: duplaNormalizada });
     }
 
-    // Desconectar sessão anterior
     if(student.socketId) {
       const old = io.sockets.sockets.get(student.socketId);
       if(old) { old.emit('force_disconnect', { reason: 'Nova conexão' }); old.disconnect(); }
@@ -1585,7 +1566,6 @@ io.on('connection', (socket) => {
     console.log('✅ ' + student.name + ' logou | Dupla: ' + student.dupla);
   });
 
-  // ===== RESPOSTA =====
   socket.on('answer_submitted', (data) => {
     const { studentId, questionId, answer, timeSpent, isCorrect, questionNumber } = data;
     
@@ -1622,7 +1602,6 @@ io.on('connection', (socket) => {
     console.log('📝 ' + student.name + ' - Q' + questionId + ': ' + answer);
   });
 
-  // ===== COPIA =====
   socket.on('copy_detected', ({ studentId, timestamp }) => {
     const student = students.get(studentId);
     if(student && !student.finished) {
@@ -1638,7 +1617,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ===== COLA =====
   socket.on('paste_detected', ({ studentId, timestamp }) => {
     const student = students.get(studentId);
     if(student && !student.finished) {
@@ -1654,7 +1632,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ===== FINALIZAR =====
   socket.on('exam_finished', (data) => {
     const { studentId, answers: studentAnswers, totalTime, completionCode, studentName, studentDupla, correctCount } = data;
     
@@ -1690,7 +1667,6 @@ io.on('connection', (socket) => {
     console.log('✅ ' + student.name + ' finalizou | Código: ' + completionCode);
   });
 
-  // ===== DESCONEXÃO =====
   socket.on('disconnect', () => {
     console.log('Cliente desconectado:', socket.id);
     if(currentStudentId) {
