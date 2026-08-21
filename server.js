@@ -12,10 +12,23 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 
 // ========== ARMAZENAMENTO ==========
-const students = new Map(); // studentId -> { id, name, dupla, socketId, loginTime, totalTime }
+const students = new Map(); // studentId -> { id, name, dupla, socketId, loginTime, totalTime, finished }
 const answers = new Map(); // studentId -> { questionId, answer, timeSpent, isCorrect, timestamp }
 const sessions = new Map(); // studentId -> { startTime, lastActivity, questionTimes }
-const finishedStudents = new Map(); // studentId -> { completionCode, finalTime }
+const finishedStudents = new Set(); // studentId -> true (bloqueia reentrada)
+
+// ========== ALUNOS CADASTRADOS ==========
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+// >>>>>>>>>>>> ADICIONE OS ALUNOS AQUI (nome completo) >>>>>>>>>>>>>>>>>>>>>>
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+const REGISTERED_STUDENTS = new Set([
+  'SILVERIO SANTOS MARTINS',
+  'LUCAS SANTOS MARTINS',
+  // ADICIONE MAIS ALUNOS AQUI, EXEMPLO:
+  // 'MARIA JOSE SILVA',
+  // 'JOAO PEDRO SOUZA',
+]);
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 // ========== QUESTÕES ==========
 const questions = [
@@ -94,203 +107,237 @@ app.get('/', (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>● PROVA MATEMÁTICA</title>
+    <title>Prova Matemática</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Courier New', monospace;
-            background: #0a0a0a;
-            color: #00ff41;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a0a1a;
+            color: #d4a0d4;
             min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             padding: 10px;
         }
         .container {
             max-width: 500px;
-            margin: 0 auto;
-            background: #0d0d0d;
-            border: 2px solid #00ff41;
-            border-radius: 5px;
-            padding: 20px;
-            min-height: 95vh;
+            width: 100%;
+            background: #1a0a1a;
+            border: 2px solid #c084c0;
+            border-radius: 15px;
+            padding: 25px 20px;
+            min-height: 90vh;
+            box-shadow: 0 0 40px rgba(192, 132, 192, 0.1);
         }
         .header {
             text-align: center;
             padding-bottom: 15px;
-            border-bottom: 1px solid #00ff41;
+            border-bottom: 2px solid #c084c0;
             margin-bottom: 20px;
         }
-        .header h2 {
-            font-weight: normal;
-            letter-spacing: 3px;
-            font-size: 18px;
+        .header h1 {
+            font-weight: 300;
+            letter-spacing: 2px;
+            font-size: 22px;
+            color: #e8c8e8;
         }
         .header .sub {
-            font-size: 10px;
-            opacity: 0.3;
+            font-size: 12px;
+            opacity: 0.5;
             margin-top: 5px;
-            letter-spacing: 2px;
+            letter-spacing: 1px;
+            color: #b888b8;
         }
         .login-area {
-            padding: 20px 0;
+            padding: 10px 0;
         }
-        .login-area h3 {
+        .login-area h2 {
             text-align: center;
-            font-weight: normal;
+            font-weight: 300;
             letter-spacing: 2px;
-            opacity: 0.5;
+            opacity: 0.6;
             margin-bottom: 20px;
-            font-size: 14px;
+            font-size: 16px;
+            color: #d4a0d4;
         }
         .form-group { margin-bottom: 15px; }
         .form-group label {
             display: block;
-            font-size: 11px;
-            letter-spacing: 2px;
-            opacity: 0.3;
+            font-size: 12px;
+            letter-spacing: 1px;
+            opacity: 0.5;
             margin-bottom: 5px;
+            color: #c084c0;
         }
         .form-group input {
             width: 100%;
             padding: 12px 15px;
-            background: #111;
-            border: 1px solid #00ff41;
-            border-radius: 3px;
-            color: #00ff41;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
+            background: #120a12;
+            border: 1px solid #c084c0;
+            border-radius: 8px;
+            color: #e8c8e8;
+            font-size: 15px;
             outline: none;
+            transition: all 0.3s;
         }
         .form-group input:focus {
-            box-shadow: 0 0 20px rgba(0,255,65,0.05);
+            border-color: #d4a0d4;
+            box-shadow: 0 0 20px rgba(192, 132, 192, 0.1);
+        }
+        .form-group input::placeholder {
+            color: #5a3a5a;
         }
         .login-btn {
             width: 100%;
             padding: 14px;
-            background: #00ff41;
-            color: #0a0a0a;
+            background: #c084c0;
+            color: #1a0a1a;
             border: none;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            font-weight: bold;
-            letter-spacing: 3px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 2px;
             cursor: pointer;
             transition: all 0.3s;
             margin-top: 10px;
         }
         .login-btn:hover {
-            background: #00cc33;
-            box-shadow: 0 0 30px rgba(0,255,65,0.1);
+            background: #d4a0d4;
+            box-shadow: 0 0 30px rgba(192, 132, 192, 0.2);
         }
         .login-btn:disabled {
-            background: #1a1a1a;
-            color: #00ff41;
-            opacity: 0.2;
+            background: #3a2a3a;
+            color: #5a4a5a;
             cursor: not-allowed;
         }
         .error-msg {
-            color: #ff0044;
+            color: #ff6666;
             text-align: center;
             margin-top: 10px;
-            font-size: 12px;
+            font-size: 13px;
         }
-        .exam-area {
-            display: none;
-        }
-        .question-block {
-            background: #0d0d0d;
-            border: 1px solid #00ff41;
-            border-radius: 3px;
-            padding: 15px;
+        .exam-area { display: none; }
+        .question-container {
+            background: #120a12;
+            border: 1px solid #c084c0;
+            border-radius: 12px;
+            padding: 20px;
             margin-bottom: 15px;
         }
-        .question-block .q-number {
-            font-size: 11px;
-            opacity: 0.3;
+        .question-number {
+            font-size: 12px;
+            opacity: 0.4;
             letter-spacing: 2px;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
+            color: #b888b8;
         }
-        .question-block .q-text {
-            font-size: 15px;
-            margin-bottom: 12px;
+        .question-text {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #e8c8e8;
+            line-height: 1.5;
         }
-        .question-block .options {
+        .options {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 8px;
+            gap: 10px;
         }
-        .question-block .options button {
-            padding: 10px;
-            background: #111;
-            border: 1px solid #00ff41;
-            border-radius: 3px;
-            color: #00ff41;
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
+        .options button {
+            padding: 12px;
+            background: #1a0a1a;
+            border: 1px solid #c084c0;
+            border-radius: 8px;
+            color: #d4a0d4;
+            font-size: 15px;
             cursor: pointer;
             transition: all 0.3s;
         }
-        .question-block .options button:hover {
-            background: #00ff41;
-            color: #0a0a0a;
+        .options button:hover {
+            background: #2a1a2a;
+            border-color: #d4a0d4;
         }
-        .question-block .options button.selected {
-            background: #00ff41;
-            color: #0a0a0a;
+        .options button.selected {
+            background: #c084c0;
+            color: #1a0a1a;
+            border-color: #c084c0;
         }
-        .question-block .options button.correct {
-            background: #00ff41;
-            color: #0a0a0a;
-            border-color: #00ff41;
-        }
-        .question-block .options button.wrong {
-            background: #ff0044;
-            color: #0a0a0a;
-            border-color: #ff0044;
-        }
-        .question-block .options button:disabled {
-            opacity: 0.5;
+        .options button:disabled {
+            opacity: 0.4;
             cursor: not-allowed;
+        }
+        .options button.correct {
+            background: #66cc88;
+            color: #1a0a1a;
+            border-color: #66cc88;
+        }
+        .options button.wrong {
+            background: #cc6666;
+            color: #1a0a1a;
+            border-color: #cc6666;
         }
         .status-bar {
             display: flex;
             justify-content: space-between;
             padding: 10px 0;
-            border-bottom: 1px solid #00ff41;
+            border-bottom: 1px solid #c084c0;
             margin-bottom: 15px;
-            font-size: 11px;
+            font-size: 12px;
             opacity: 0.4;
+            color: #b888b8;
         }
         .progress {
             text-align: center;
             padding: 10px;
-            font-size: 12px;
+            font-size: 13px;
             opacity: 0.3;
             letter-spacing: 2px;
+            color: #b888b8;
+        }
+        .nav-btn {
+            width: 100%;
+            padding: 14px;
+            background: #c084c0;
+            color: #1a0a1a;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+        .nav-btn:hover {
+            background: #d4a0d4;
+            box-shadow: 0 0 30px rgba(192, 132, 192, 0.2);
+        }
+        .nav-btn:disabled {
+            background: #3a2a3a;
+            color: #5a4a5a;
+            cursor: not-allowed;
         }
         .finish-btn {
             width: 100%;
             padding: 14px;
-            background: #ff0044;
-            color: #0a0a0a;
+            background: #cc6666;
+            color: #1a0a1a;
             border: none;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            font-weight: bold;
-            letter-spacing: 3px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 2px;
             cursor: pointer;
             transition: all 0.3s;
-            margin-top: 20px;
+            margin-top: 15px;
         }
         .finish-btn:hover {
-            background: #cc0033;
-            box-shadow: 0 0 30px rgba(255,0,68,0.1);
+            background: #ff6666;
+            box-shadow: 0 0 30px rgba(204, 102, 102, 0.2);
         }
         .finish-btn:disabled {
-            background: #1a1a1a;
-            color: #ff0044;
-            opacity: 0.2;
+            background: #3a2a3a;
+            color: #5a4a5a;
             cursor: not-allowed;
         }
         .completion-area {
@@ -298,84 +345,121 @@ app.get('/', (req, res) => {
             text-align: center;
             padding: 30px 0;
         }
+        .completion-area .icon {
+            font-size: 48px;
+            color: #c084c0;
+            margin-bottom: 15px;
+        }
+        .completion-area h2 {
+            font-weight: 300;
+            letter-spacing: 3px;
+            color: #e8c8e8;
+            margin-bottom: 10px;
+        }
         .completion-area .code {
-            font-size: 24px;
-            letter-spacing: 5px;
+            font-size: 28px;
+            letter-spacing: 6px;
             padding: 15px;
-            background: #111;
-            border: 2px solid #00ff41;
-            border-radius: 3px;
+            background: #120a12;
+            border: 2px solid #c084c0;
+            border-radius: 8px;
             margin: 15px 0;
+            color: #d4a0d4;
         }
         .completion-area .info {
-            opacity: 0.3;
-            font-size: 12px;
-            letter-spacing: 2px;
-            margin: 10px 0;
+            opacity: 0.4;
+            font-size: 13px;
+            letter-spacing: 1px;
+            margin: 8px 0;
+            color: #b888b8;
+        }
+        .completion-area .score {
+            font-size: 32px;
+            color: #c084c0;
+            margin: 15px 0;
         }
         .warning {
-            color: #ff0044;
-            font-size: 11px;
+            color: #ff6666;
+            font-size: 12px;
             text-align: center;
             padding: 8px;
             background: #1a0a0a;
-            border: 1px solid #ff0044;
-            border-radius: 3px;
+            border: 1px solid #ff6666;
+            border-radius: 6px;
             margin: 5px 0;
             display: none;
         }
         .status-dot {
             display: inline-block;
-            width: 6px;
-            height: 6px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             margin-right: 6px;
         }
-        .status-dot.online { background: #00ff41; }
+        .status-dot.online { background: #66cc88; }
+        .blocked-msg {
+            text-align: center;
+            padding: 30px 0;
+            color: #ff6666;
+        }
+        .blocked-msg h2 {
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>● PROVA MATEMÁTICA ●</h2>
-            <div class="sub">PROFESSOR HÉBER LEMOS</div>
+            <h1>Prova Matemática</h1>
+            <div class="sub">Professor Heber Lemos</div>
         </div>
 
         <!-- Login -->
         <div id="loginArea" class="login-area">
-            <h3>› IDENTIFICAÇÃO ‹</h3>
+            <h2>Identificacao</h2>
             <div class="form-group">
-                <label>NOME COMPLETO</label>
-                <input type="text" id="studentName" placeholder="SEU NOME">
+                <label>Nome Completo</label>
+                <input type="text" id="studentName" placeholder="Digite seu nome completo">
             </div>
             <div class="form-group">
-                <label>DUPLA</label>
-                <input type="text" id="studentDupla" placeholder="NOME DA DUPLA">
+                <label>Dupla</label>
+                <input type="text" id="studentDupla" placeholder="Nome da sua dupla">
             </div>
-            <button class="login-btn" id="loginBtn">► INICIAR PROVA</button>
+            <button class="login-btn" id="loginBtn">Iniciar Prova</button>
             <div class="error-msg" id="loginError"></div>
         </div>
 
         <!-- Prova -->
         <div id="examArea" class="exam-area">
             <div class="status-bar">
-                <span id="timer">⏱ 00:00</span>
-                <span id="studentInfo">● ALUNO</span>
+                <span id="timer">00:00</span>
+                <span id="studentInfo">Aluno</span>
             </div>
             <div id="warning" class="warning"></div>
-            <div id="questionsContainer"></div>
-            <div class="progress" id="progress">QUESTÃO 0/10</div>
-            <button class="finish-btn" id="finishBtn">■ FINALIZAR PROVA</button>
+            <div id="questionContainer"></div>
+            <div class="progress" id="progress">Questao 0 de 10</div>
+            <button class="nav-btn" id="nextBtn">Avancar</button>
+            <button class="finish-btn" id="finishBtn">Finalizar Prova</button>
         </div>
 
-        <!-- Finalização -->
+        <!-- Finalizacao -->
         <div id="completionArea" class="completion-area">
-            <div style="font-size:28px;">●</div>
-            <h3 style="font-weight:normal;letter-spacing:3px;margin:15px 0;">PROVA FINALIZADA</h3>
-            <div class="info">CÓDIGO DE FINALIZAÇÃO</div>
+            <div class="icon">�</div>
+            <h2>Prova Finalizada</h2>
+            <div class="score" id="scoreDisplay">0/10</div>
+            <div class="info">Codigo de Finalizacao</div>
             <div class="code" id="completionCode">XXXX-XXXX</div>
             <div class="info" id="completionStats"></div>
-            <button class="login-btn" onclick="location.reload()" style="margin-top:20px;">► NOVA PROVA</button>
+            <button class="login-btn" onclick="location.reload()" style="margin-top:20px;">Nova Prova</button>
+        </div>
+
+        <!-- Bloqueado -->
+        <div id="blockedArea" class="blocked-msg" style="display:none;">
+            <h2>Acesso Bloqueado</h2>
+            <p>Esta prova ja foi finalizada.</p>
+            <button class="login-btn" onclick="location.reload()" style="margin-top:20px;">Voltar</button>
         </div>
     </div>
 
@@ -388,41 +472,50 @@ app.get('/', (req, res) => {
         let isLoggedIn = false;
         let currentQuestion = 0;
         let answers = {};
-        let questionTimes = {};
         let startTime = null;
         let timerInterval = null;
         let elapsedSeconds = 0;
-        let warningShown = false;
         let questionStartTime = null;
         let isFinished = false;
+        let selectedAnswer = null;
 
         // Elementos
         const loginArea = document.getElementById('loginArea');
         const examArea = document.getElementById('examArea');
         const completionArea = document.getElementById('completionArea');
+        const blockedArea = document.getElementById('blockedArea');
         const loginBtn = document.getElementById('loginBtn');
         const loginError = document.getElementById('loginError');
-        const questionsContainer = document.getElementById('questionsContainer');
+        const questionContainer = document.getElementById('questionContainer');
         const progress = document.getElementById('progress');
         const timer = document.getElementById('timer');
         const studentInfo = document.getElementById('studentInfo');
         const finishBtn = document.getElementById('finishBtn');
+        const nextBtn = document.getElementById('nextBtn');
         const warning = document.getElementById('warning');
         const completionCode = document.getElementById('completionCode');
         const completionStats = document.getElementById('completionStats');
+        const scoreDisplay = document.getElementById('scoreDisplay');
 
         // ===== LOGIN =====
         loginBtn.onclick = () => {
-            const name = document.getElementById('studentName').value.trim();
-            const dupla = document.getElementById('studentDupla').value.trim();
+            const name = document.getElementById('studentName').value.trim().toUpperCase();
+            const dupla = document.getElementById('studentDupla').value.trim().toUpperCase();
             
             if(!name || !dupla) {
-                loginError.textContent = 'ERROR: PREENCHA TODOS OS CAMPOS';
+                loginError.textContent = 'Preencha todos os campos';
+                return;
+            }
+
+            // Verifica se o aluno está cadastrado
+            const registeredStudents = ${JSON.stringify(Array.from(REGISTERED_STUDENTS))};
+            if(!registeredStudents.includes(name)) {
+                loginError.textContent = 'Aluno nao cadastrado';
                 return;
             }
 
             loginBtn.disabled = true;
-            loginBtn.textContent = '● CONECTANDO...';
+            loginBtn.textContent = 'Conectando...';
             loginError.textContent = '';
 
             studentName = name;
@@ -435,19 +528,23 @@ app.get('/', (req, res) => {
             isLoggedIn = true;
             loginArea.style.display = 'none';
             examArea.style.display = 'block';
-            studentInfo.textContent = '● ' + studentName + ' | ' + studentDupla;
+            studentInfo.textContent = studentName + ' | ' + studentDupla;
             startTime = Date.now();
             startTimer();
-            renderQuestions();
-            socket.emit('student_ready', { studentId });
+            renderQuestion(0);
             loginBtn.disabled = false;
-            loginBtn.textContent = '► INICIAR PROVA';
+            loginBtn.textContent = 'Iniciar Prova';
         });
 
         socket.on('login_error', (data) => {
-            loginError.textContent = 'ERROR: ' + (data.error || 'ACESSO NEGADO');
+            loginError.textContent = data.error || 'Erro ao logar';
             loginBtn.disabled = false;
-            loginBtn.textContent = '► INICIAR PROVA';
+            loginBtn.textContent = 'Iniciar Prova';
+        });
+
+        socket.on('already_finished', () => {
+            loginArea.style.display = 'none';
+            blockedArea.style.display = 'block';
         });
 
         // ===== TIMER =====
@@ -456,56 +553,60 @@ app.get('/', (req, res) => {
                 elapsedSeconds++;
                 const minutes = Math.floor(elapsedSeconds / 60);
                 const seconds = elapsedSeconds % 60;
-                timer.textContent = '⏱ ' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+                timer.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
             }, 1000);
         }
 
-        // ===== RENDER QUESTIONS =====
-        function renderQuestions() {
+        // ===== RENDER QUESTION =====
+        function renderQuestion(index) {
             const questionsData = ${JSON.stringify(questions)};
-            
-            questionsContainer.innerHTML = questionsData.map((q, index) => \`
-                <div class="question-block" id="q_\${q.id}">
-                    <div class="q-number">QUESTÃO \${index + 1}/10</div>
-                    <div class="q-text">\${q.question}</div>
-                    <div class="options" id="options_\${q.id}">
+            if(index >= questionsData.length) {
+                finishBtn.style.display = 'block';
+                nextBtn.style.display = 'none';
+                progress.textContent = 'Prova Completa! Finalize';
+                return;
+            }
+
+            const q = questionsData[index];
+            selectedAnswer = null;
+            questionStartTime = Date.now();
+
+            questionContainer.innerHTML = \`
+                <div class="question-container">
+                    <div class="question-number">Questao \${index + 1} de 10</div>
+                    <div class="question-text">\${q.question}</div>
+                    <div class="options" id="optionsContainer">
                         \${q.options.map(opt => \`
-                            <button onclick="selectAnswer(\${q.id}, '\${opt}', \${index + 1})" 
-                                    id="opt_\${q.id}_\${opt}">
+                            <button onclick="selectAnswer('\${opt}', \${q.id}, \${index})" id="opt_\${q.id}_\${opt.replace(/[^a-zA-Z0-9]/g, '_')}">
                                 \${opt}
                             </button>
                         \`).join('')}
                     </div>
                 </div>
-            \`).join('');
+            \`;
 
-            progress.textContent = 'QUESTÃO 0/10';
+            progress.textContent = 'Questao ' + (index + 1) + ' de 10';
+            finishBtn.style.display = 'none';
+            nextBtn.style.display = 'block';
+            nextBtn.disabled = true;
         }
 
         // ===== SELECT ANSWER =====
-        function selectAnswer(questionId, answer, questionNumber) {
-            if(isFinished) return;
-
-            const now = Date.now();
-            const timeSpent = questionStartTime ? (now - questionStartTime) / 1000 : 0;
-
-            // Verificar tempo mínimo (5 segundos)
-            if(timeSpent < 5 && questionStartTime) {
-                showWarning('⚠️ RESPOSTA MUITO RÁPIDA! AGUARDE 5 SEGUNDOS');
+        function selectAnswer(answer, questionId, index) {
+            const timeSpent = (Date.now() - questionStartTime) / 1000;
+            
+            // Verifica tempo mínimo (5 segundos)
+            if(timeSpent < 5) {
+                showWarning('Aguarde 5 segundos para responder');
                 return;
             }
 
-            // Armazenar resposta
-            answers[questionId] = {
-                answer: answer,
-                timeSpent: Math.round(timeSpent),
-                timestamp: new Date().toISOString()
-            };
-
-            // Atualizar visual
-            const options = document.getElementById('options_' + questionId);
-            if(options) {
-                const buttons = options.querySelectorAll('button');
+            selectedAnswer = answer;
+            
+            // Atualiza visual
+            const container = document.getElementById('optionsContainer');
+            if(container) {
+                const buttons = container.querySelectorAll('button');
                 buttons.forEach(btn => {
                     btn.disabled = true;
                     if(btn.textContent === answer) {
@@ -514,76 +615,73 @@ app.get('/', (req, res) => {
                 });
             }
 
-            // Verificar se é a resposta correta
-            const question = ${JSON.stringify(questions)}.find(q => q.id === questionId);
-            const isCorrect = question.answer === answer;
+            // Salva resposta
+            answers[questionId] = {
+                answer: answer,
+                timeSpent: Math.round(timeSpent)
+            };
 
-            // Enviar para o servidor
+            // Habilita próximo
+            nextBtn.disabled = false;
+
+            // Verifica se é correta
+            const questionsData = ${JSON.stringify(questions)};
+            const q = questionsData.find(q => q.id === questionId);
+            const isCorrect = q.answer === answer;
+
+            // Envia para o servidor
             socket.emit('answer_submitted', {
                 studentId,
                 questionId,
                 answer,
                 timeSpent: Math.round(timeSpent),
                 isCorrect,
-                questionNumber
+                questionNumber: index + 1
             });
-
-            // Atualizar progresso
-            const answered = Object.keys(answers).length;
-            progress.textContent = 'QUESTÃO ' + answered + '/10';
-
-            // Próxima questão
-            questionStartTime = null;
-            checkCompletion();
         }
 
-        // ===== CHECK COMPLETION =====
-        function checkCompletion() {
-            const answered = Object.keys(answers).length;
-            if(answered === 10) {
-                finishBtn.disabled = false;
-                progress.textContent = '✅ PROVA COMPLETA! FINALIZE';
+        // ===== NEXT QUESTION =====
+        nextBtn.onclick = () => {
+            if(selectedAnswer === null) return;
+            currentQuestion++;
+            if(currentQuestion >= ${JSON.stringify(questions)}.length) {
+                renderQuestion(currentQuestion);
+                finishBtn.style.display = 'block';
+                nextBtn.style.display = 'none';
+                progress.textContent = 'Prova Completa! Finalize';
+            } else {
+                renderQuestion(currentQuestion);
             }
-        }
-
-        // ===== WARNING =====
-        function showWarning(msg) {
-            warning.textContent = msg;
-            warning.style.display = 'block';
-            setTimeout(() => {
-                warning.style.display = 'none';
-            }, 3000);
-        }
-
-        // ===== DETECT COPY/PASTE =====
-        document.addEventListener('copy', (e) => {
-            if(isLoggedIn && !isFinished) {
-                socket.emit('copy_detected', { studentId, timestamp: new Date().toISOString() });
-                showWarning('⚠️ COPIA DETECTADA!');
-            }
-        });
-
-        document.addEventListener('paste', (e) => {
-            if(isLoggedIn && !isFinished) {
-                socket.emit('paste_detected', { studentId, timestamp: new Date().toISOString() });
-                showWarning('⚠️ COLA DETECTADA!');
-            }
-        });
+        };
 
         // ===== FINISH EXAM =====
         finishBtn.onclick = () => {
-            if(Object.keys(answers).length < 10) {
-                showWarning('⚠️ RESPONDA TODAS AS QUESTÕES!');
+            const totalQuestions = ${JSON.stringify(questions)}.length;
+            const answered = Object.keys(answers).length;
+
+            if(answered < totalQuestions) {
+                showWarning('Responda todas as questoes antes de finalizar');
                 return;
             }
 
-            if(confirm('● FINALIZAR PROVA? ●')) {
+            if(confirm('Finalizar prova?')) {
                 isFinished = true;
                 finishBtn.disabled = true;
+                nextBtn.disabled = true;
                 clearInterval(timerInterval);
 
                 const totalTime = Math.round(elapsedSeconds);
                 const completionCode = generateCode();
+
+                // Calcula acertos
+                const questionsData = ${JSON.stringify(questions)};
+                let correctCount = 0;
+                Object.keys(answers).forEach(qId => {
+                    const q = questionsData.find(q => q.id === parseInt(qId));
+                    if(q && answers[qId].answer === q.answer) {
+                        correctCount++;
+                    }
+                });
 
                 socket.emit('exam_finished', {
                     studentId,
@@ -591,15 +689,16 @@ app.get('/', (req, res) => {
                     totalTime,
                     completionCode,
                     studentName,
-                    studentDupla
+                    studentDupla,
+                    correctCount
                 });
 
-                // Mostrar finalização
+                // Mostra finalizacao
                 examArea.style.display = 'none';
                 completionArea.style.display = 'block';
                 completionCode.textContent = completionCode;
-                completionStats.textContent = 'TEMPO TOTAL: ' + formatTime(totalTime) + ' | ACERTOS: ' + 
-                    Object.values(answers).filter(a => a.isCorrect).length + '/10';
+                scoreDisplay.textContent = correctCount + '/10';
+                completionStats.textContent = 'Tempo total: ' + formatTime(totalTime);
             }
         };
 
@@ -620,35 +719,42 @@ app.get('/', (req, res) => {
             return String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
         }
 
-        // ===== DETECTA INPUT RÁPIDO =====
-        document.addEventListener('click', (e) => {
+        // ===== WARNING =====
+        function showWarning(msg) {
+            warning.textContent = msg;
+            warning.style.display = 'block';
+            setTimeout(() => {
+                warning.style.display = 'none';
+            }, 3000);
+        }
+
+        // ===== DETECT COPY/PASTE =====
+        document.addEventListener('copy', (e) => {
             if(isLoggedIn && !isFinished) {
-                const target = e.target;
-                if(target.tagName === 'BUTTON' && target.closest('.question-block')) {
-                    questionStartTime = Date.now();
-                }
+                socket.emit('copy_detected', { studentId, timestamp: new Date().toISOString() });
+                showWarning('Copiar nao permitido');
             }
         });
 
-        // ===== KEYBOARD SHORTCUTS =====
-        document.addEventListener('keydown', (e) => {
-            if(e.key === 'Enter' && isLoggedIn && !isFinished) {
-                // Detecta tecla Enter em campos de resposta
+        document.addEventListener('paste', (e) => {
+            if(isLoggedIn && !isFinished) {
+                socket.emit('paste_detected', { studentId, timestamp: new Date().toISOString() });
+                showWarning('Colar nao permitido');
             }
         });
 
         // ===== SOCKET EVENTS =====
         socket.on('force_disconnect', () => {
-            alert('● CONEXÃO ENCERRADA');
+            alert('Conexao encerrada');
             location.reload();
         });
 
         socket.on('connect', () => {
-            console.log('● CONECTADO');
+            console.log('Conectado');
         });
 
         socket.on('disconnect', () => {
-            console.log('● DESCONECTADO');
+            console.log('Desconectado');
         });
     </script>
 </body>
@@ -660,158 +766,169 @@ app.get('/', (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>● PROF. HÉBER LEMOS</title>
+    <title>Professor Heber Lemos</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Courier New', monospace;
-            background: #0a0a0a;
-            color: #00ff41;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a0a1a;
+            color: #d4a0d4;
             min-height: 100vh;
             padding: 20px;
         }
         .container { max-width: 1400px; margin: 0 auto; }
         h1 {
-            font-weight: normal;
-            font-size: 22px;
+            font-weight: 300;
+            font-size: 24px;
             letter-spacing: 4px;
             text-align: center;
             margin-bottom: 25px;
-            text-shadow: 0 0 30px rgba(0,255,65,0.05);
+            color: #e8c8e8;
         }
         h1 .sub {
-            font-size: 12px;
-            opacity: 0.3;
+            font-size: 13px;
+            opacity: 0.4;
             display: block;
             margin-top: 5px;
             letter-spacing: 2px;
+            color: #b888b8;
         }
         .login-panel {
             max-width: 400px;
             margin: 0 auto 20px;
-            background: #0d0d0d;
-            border: 1px solid #00ff41;
-            border-radius: 5px;
-            padding: 20px;
+            background: #120a12;
+            border: 1px solid #c084c0;
+            border-radius: 12px;
+            padding: 25px;
         }
         .login-panel h2 {
             text-align: center;
-            font-weight: normal;
+            font-weight: 300;
             letter-spacing: 3px;
             opacity: 0.5;
-            font-size: 14px;
+            font-size: 16px;
             margin-bottom: 15px;
+            color: #d4a0d4;
         }
         .form-group { margin-bottom: 12px; }
         .form-group label {
             display: block;
-            font-size: 10px;
-            letter-spacing: 2px;
-            opacity: 0.3;
+            font-size: 12px;
+            letter-spacing: 1px;
+            opacity: 0.4;
             margin-bottom: 3px;
+            color: #c084c0;
         }
         .form-group input {
             width: 100%;
-            padding: 10px 12px;
-            background: #111;
-            border: 1px solid #00ff41;
-            border-radius: 3px;
-            color: #00ff41;
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
+            padding: 10px 14px;
+            background: #1a0a1a;
+            border: 1px solid #c084c0;
+            border-radius: 8px;
+            color: #e8c8e8;
+            font-size: 14px;
             outline: none;
+        }
+        .form-group input:focus {
+            border-color: #d4a0d4;
+            box-shadow: 0 0 20px rgba(192, 132, 192, 0.1);
         }
         .btn-primary {
             width: 100%;
-            padding: 10px;
-            background: #00ff41;
-            color: #0a0a0a;
+            padding: 12px;
+            background: #c084c0;
+            color: #1a0a1a;
             border: none;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
-            font-weight: bold;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
             letter-spacing: 3px;
             cursor: pointer;
             transition: all 0.3s;
         }
-        .btn-primary:hover { background: #00cc33; }
+        .btn-primary:hover {
+            background: #d4a0d4;
+            box-shadow: 0 0 30px rgba(192, 132, 192, 0.2);
+        }
         .error-msg {
-            color: #ff0044;
+            color: #ff6666;
             text-align: center;
             margin-top: 10px;
-            font-size: 12px;
+            font-size: 13px;
         }
         .main-grid {
             display: grid;
             grid-template-columns: 300px 1fr;
             gap: 15px;
-            height: calc(100vh - 200px);
+            height: calc(100vh - 220px);
         }
         .panel {
-            background: #0d0d0d;
-            border: 1px solid #00ff41;
-            border-radius: 5px;
+            background: #120a12;
+            border: 1px solid #c084c0;
+            border-radius: 12px;
             padding: 15px;
             overflow-y: auto;
         }
         .panel::-webkit-scrollbar { width: 4px; }
-        .panel::-webkit-scrollbar-track { background: #0a0a0a; }
-        .panel::-webkit-scrollbar-thumb { background: #00ff41; border-radius: 2px; }
+        .panel::-webkit-scrollbar-track { background: #1a0a1a; }
+        .panel::-webkit-scrollbar-thumb { background: #c084c0; border-radius: 2px; }
         .panel h2 {
-            font-weight: normal;
-            font-size: 12px;
+            font-weight: 300;
+            font-size: 13px;
             letter-spacing: 3px;
             margin-bottom: 12px;
             opacity: 0.5;
-            border-bottom: 1px solid #00ff41;
+            border-bottom: 1px solid #c084c0;
             padding-bottom: 8px;
+            color: #d4a0d4;
         }
         .panel h3 {
-            font-weight: normal;
-            font-size: 11px;
+            font-weight: 300;
+            font-size: 12px;
             letter-spacing: 2px;
             margin: 10px 0 5px;
             opacity: 0.3;
+            color: #b888b8;
         }
         .student-item {
             padding: 10px;
-            border: 1px solid #00ff41;
-            border-radius: 3px;
+            border: 1px solid #c084c0;
+            border-radius: 8px;
             margin-bottom: 8px;
             cursor: pointer;
             transition: all 0.3s;
         }
-        .student-item:hover { background: #111; }
-        .student-item.active { background: #111; border-color: #00ff41; }
-        .student-item .name { font-size: 14px; }
-        .student-item .dupla { font-size: 10px; opacity: 0.3; }
+        .student-item:hover { background: #1a0a1a; }
+        .student-item.active { background: #1a0a1a; border-color: #d4a0d4; }
+        .student-item .name { font-size: 14px; color: #e8c8e8; }
+        .student-item .dupla { font-size: 11px; opacity: 0.4; color: #b888b8; }
         .student-item .status {
-            font-size: 8px;
-            padding: 2px 8px;
-            border-radius: 2px;
+            font-size: 9px;
+            padding: 2px 10px;
+            border-radius: 4px;
             letter-spacing: 1px;
             display: inline-block;
             margin-top: 4px;
         }
-        .status.online { background: #00ff41; color: #0a0a0a; }
-        .status.offline { background: #1a1a1a; color: #333; }
-        .status.finished { background: #ff0044; color: #0a0a0a; }
+        .status.online { background: #66cc88; color: #1a0a1a; }
+        .status.offline { background: #3a2a3a; color: #5a4a5a; }
+        .status.finished { background: #cc6666; color: #1a0a1a; }
         .detail-item {
             padding: 6px 0;
-            border-bottom: 1px solid #00ff41;
-            opacity: 0.1;
-            font-size: 11px;
+            border-bottom: 1px solid #c084c0;
+            opacity: 0.5;
+            font-size: 12px;
             display: flex;
             justify-content: space-between;
+            transition: opacity 0.3s;
         }
-        .detail-item:hover { opacity: 0.5; }
-        .detail-item .label { opacity: 0.5; }
-        .detail-item .value { color: #00ff41; }
-        .detail-item .correct { color: #00ff41; }
-        .detail-item .wrong { color: #ff0044; }
-        .detail-item .warning-text { color: #ff8800; }
-        .no-data { text-align: center; opacity: 0.15; padding: 20px; font-size: 12px; letter-spacing: 2px; }
+        .detail-item:hover { opacity: 1; }
+        .detail-item .label { opacity: 0.5; color: #b888b8; }
+        .detail-item .value { color: #d4a0d4; }
+        .detail-item .correct { color: #66cc88; }
+        .detail-item .wrong { color: #cc6666; }
+        .detail-item .warning-text { color: #ff8844; }
+        .no-data { text-align: center; opacity: 0.2; padding: 20px; font-size: 13px; letter-spacing: 2px; color: #b888b8; }
         .stats-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -819,42 +936,45 @@ app.get('/', (req, res) => {
             margin: 10px 0;
         }
         .stats-grid .stat {
-            background: #0a0a0a;
+            background: #1a0a1a;
             padding: 10px;
-            border: 1px solid #00ff41;
-            border-radius: 3px;
+            border: 1px solid #c084c0;
+            border-radius: 8px;
             text-align: center;
         }
         .stats-grid .stat .number {
-            font-size: 22px;
+            font-size: 24px;
             letter-spacing: 2px;
+            color: #e8c8e8;
         }
         .stats-grid .stat .label {
-            font-size: 8px;
+            font-size: 9px;
             opacity: 0.3;
             letter-spacing: 1px;
             margin-top: 3px;
+            color: #b888b8;
         }
         .code-display {
-            background: #111;
+            background: #1a0a1a;
             padding: 10px;
-            border: 1px solid #00ff41;
-            border-radius: 3px;
+            border: 1px solid #c084c0;
+            border-radius: 8px;
             text-align: center;
-            font-size: 18px;
-            letter-spacing: 4px;
+            font-size: 20px;
+            letter-spacing: 6px;
             margin: 10px 0;
+            color: #d4a0d4;
         }
         .badge {
-            background: #ff0044;
-            color: #0a0a0a;
-            font-size: 8px;
-            padding: 2px 6px;
-            border-radius: 2px;
+            background: #cc6666;
+            color: #1a0a1a;
+            font-size: 9px;
+            padding: 2px 8px;
+            border-radius: 4px;
             margin-left: 5px;
         }
-        .badge.warning { background: #ff8800; }
-        .badge.success { background: #00ff41; }
+        .badge.warning { background: #ff8844; }
+        .badge.success { background: #66cc88; }
         @media (max-width: 900px) {
             .main-grid { grid-template-columns: 1fr; height: auto; }
             .panel { max-height: 400px; }
@@ -863,18 +983,18 @@ app.get('/', (req, res) => {
 </head>
 <body>
     <div class="container">
-        <h1>● PROF. HÉBER LEMOS ●
-            <span class="sub">SISTEMA DE MONITORAMENTO DE PROVAS</span>
+        <h1>Professor Heber Lemos
+            <span class="sub">Sistema de Monitoramento de Provas</span>
         </h1>
 
         <!-- Login do Professor -->
         <div id="teacherLogin" class="login-panel">
-            <h2>● ACESSO RESTRITO ●</h2>
+            <h2>Acesso Restrito</h2>
             <div class="form-group">
-                <label>SENHA</label>
-                <input type="password" id="teacherPassword" placeholder="ENTER PASSWORD">
+                <label>Senha</label>
+                <input type="password" id="teacherPassword" placeholder="Digite a senha">
             </div>
-            <button class="btn-primary" id="teacherLoginBtn">► ACESSAR</button>
+            <button class="btn-primary" id="teacherLoginBtn">Acessar</button>
             <div class="error-msg" id="teacherLoginError"></div>
         </div>
 
@@ -883,17 +1003,17 @@ app.get('/', (req, res) => {
             <div class="main-grid">
                 <!-- Lista de Alunos -->
                 <div class="panel">
-                    <h2>● ALUNOS ATIVOS</h2>
+                    <h2>Alunos Ativos</h2>
                     <div id="studentList">
-                        <div class="no-data">AGUARDANDO ALUNOS...</div>
+                        <div class="no-data">Aguardando alunos...</div>
                     </div>
                 </div>
 
                 <!-- Detalhes do Aluno -->
                 <div class="panel">
-                    <h2>● DETALHES DO ALUNO</h2>
+                    <h2>Detalhes do Aluno</h2>
                     <div id="studentDetails">
-                        <div class="no-data">SELECIONE UM ALUNO</div>
+                        <div class="no-data">Selecione um aluno</div>
                     </div>
                 </div>
             </div>
@@ -914,19 +1034,19 @@ app.get('/', (req, res) => {
         const studentList = document.getElementById('studentList');
         const studentDetails = document.getElementById('studentDetails');
 
-        const TEACHER_PASSWORD = "heber2024";
+        const TEACHER_PASSWORD = "heber123456";
 
         // ===== LOGIN DO PROFESSOR =====
         teacherLoginBtn.onclick = () => {
             const pass = teacherPassword.value.trim();
-            if(!pass) { teacherLoginError.textContent = 'ENTER PASSWORD'; return; }
+            if(!pass) { teacherLoginError.textContent = 'Digite a senha'; return; }
             if(pass === TEACHER_PASSWORD) {
                 isLoggedIn = true;
                 teacherLogin.style.display = 'none';
                 mainPanel.style.display = 'block';
                 loadStudents();
             } else {
-                teacherLoginError.textContent = '● ACCESS DENIED ●';
+                teacherLoginError.textContent = 'Senha incorreta';
                 teacherPassword.value = '';
                 teacherPassword.focus();
             }
@@ -946,7 +1066,7 @@ app.get('/', (req, res) => {
 
         function renderStudents(students) {
             if(students.length === 0) {
-                studentList.innerHTML = '<div class="no-data">NENHUM ALUNO CONECTADO</div>';
+                studentList.innerHTML = '<div class="no-data">Nenhum aluno conectado</div>';
                 return;
             }
 
@@ -954,13 +1074,13 @@ app.get('/', (req, res) => {
                 <div class="student-item \${currentStudentId === s.id ? 'active' : ''}" 
                      onclick="selectStudent('\${s.id}')">
                     <div class="name">\${s.name}</div>
-                    <div class="dupla">DUPLA: \${s.dupla}</div>
+                    <div class="dupla">Dupla: \${s.dupla}</div>
                     <div>
                         <span class="status \${s.online ? 'online' : s.finished ? 'finished' : 'offline'}">
-                            \${s.online ? '● ONLINE' : s.finished ? '■ FINALIZADO' : '○ OFFLINE'}
+                            \${s.online ? 'Online' : s.finished ? 'Finalizado' : 'Offline'}
                         </span>
-                        <span class="badge">\${s.totalTime || '0'}s</span>
-                        <span class="badge warning">\${s.warnings || 0} ⚠️</span>
+                        <span class="badge">\${s.totalTime || 0}s</span>
+                        <span class="badge warning">\${(s.warnings || []).length} Alertas</span>
                     </div>
                 </div>
             \`).join('');
@@ -978,7 +1098,7 @@ app.get('/', (req, res) => {
 
         function renderStudentDetails(student) {
             if(!student) {
-                studentDetails.innerHTML = '<div class="no-data">ALUNO NÃO ENCONTRADO</div>';
+                studentDetails.innerHTML = '<div class="no-data">Aluno nao encontrado</div>';
                 return;
             }
 
@@ -988,25 +1108,21 @@ app.get('/', (req, res) => {
 
             let answersHtml = '';
             if(student.answers) {
-                const sorted = Object.keys(student.answers).sort();
+                const sorted = Object.keys(student.answers).sort((a,b) => parseInt(a) - parseInt(b));
                 answersHtml = sorted.map(qId => {
                     const ans = student.answers[qId];
                     const question = ${JSON.stringify(questions)}.find(q => q.id === parseInt(qId));
                     const isCorrect = ans && ans.isCorrect;
                     const isFast = ans && ans.timeSpent < 5;
-                    const isCopied = ans && ans.copied;
-                    const isPasted = ans && ans.pasted;
                     
                     return \`
                         <div class="detail-item">
                             <span class="label">Q\${qId}</span>
                             <span>
                                 <span class="\${isCorrect ? 'correct' : 'wrong'}">\${isCorrect ? '✓' : '✗'}</span>
-                                \${ans ? ans.answer : '—'}
-                                <span style="opacity:0.3;font-size:9px;">\${ans ? ans.timeSpent + 's' : '—'}</span>
-                                \${isFast ? '<span class="badge warning" style="font-size:7px;">⚡</span>' : ''}
-                                \${isCopied ? '<span class="badge warning" style="font-size:7px;">📋</span>' : ''}
-                                \${isPasted ? '<span class="badge warning" style="font-size:7px;">📄</span>' : ''}
+                                \${ans ? ans.answer : '---'}
+                                <span style="opacity:0.3;font-size:10px;">\${ans ? ans.timeSpent + 's' : '---'}</span>
+                                \${isFast ? '<span class="badge warning" style="font-size:8px;">Rapido</span>' : ''}
                             </span>
                         </div>
                     \`;
@@ -1021,43 +1137,43 @@ app.get('/', (req, res) => {
                         <span class="warning-text">\${new Date(w.timestamp).toLocaleTimeString()}</span>
                     </div>
                 \`).join('') : 
-                '<div class="no-data" style="font-size:10px;">NENHUM ALERTA</div>';
+                '<div class="no-data" style="font-size:11px;">Nenhum alerta</div>';
 
             studentDetails.innerHTML = \`
                 <div style="margin-bottom:15px;">
-                    <div style="font-size:18px;letter-spacing:2px;">\${student.name}</div>
-                    <div style="font-size:11px;opacity:0.3;">DUPLA: \${student.dupla}</div>
-                    <div style="font-size:11px;opacity:0.3;">LOGIN: \${new Date(student.loginTime).toLocaleString()}</div>
+                    <div style="font-size:20px;letter-spacing:2px;color:#e8c8e8;">\${student.name}</div>
+                    <div style="font-size:12px;opacity:0.4;">Dupla: \${student.dupla}</div>
+                    <div style="font-size:12px;opacity:0.4;">Login: \${new Date(student.loginTime).toLocaleString()}</div>
                     \${student.completionCode ? \`
-                        <div class="code-display">● \${student.completionCode} ●</div>
+                        <div class="code-display">\${student.completionCode}</div>
                     \` : ''}
                 </div>
 
                 <div class="stats-grid">
                     <div class="stat">
                         <div class="number">\${totalAnswers}/10</div>
-                        <div class="label">QUESTÕES RESPONDIDAS</div>
+                        <div class="label">Respondidas</div>
                     </div>
                     <div class="stat">
-                        <div class="number" style="color:\${correctAnswers >= 7 ? '#00ff41' : '#ff8800'}">
+                        <div class="number" style="color:\${correctAnswers >= 7 ? '#66cc88' : '#ff8844'}">
                             \${correctAnswers}
                         </div>
-                        <div class="label">ACERTOS</div>
+                        <div class="label">Acertos</div>
                     </div>
                     <div class="stat">
                         <div class="number">\${student.totalTime || 0}s</div>
-                        <div class="label">TEMPO TOTAL</div>
+                        <div class="label">Tempo Total</div>
                     </div>
                     <div class="stat">
-                        <div class="number" style="color:#ff8800;">\${warnings.length}</div>
-                        <div class="label">ALERTAS</div>
+                        <div class="number" style="color:#ff8844;">\${warnings.length}</div>
+                        <div class="label">Alertas</div>
                     </div>
                 </div>
 
-                <h3>● RESPOSTAS</h3>
-                \${answersHtml || '<div class="no-data">AGUARDANDO RESPOSTAS</div>'}
+                <h3>Respostas</h3>
+                \${answersHtml || '<div class="no-data">Aguardando respostas</div>'}
 
-                <h3>● ALERTAS</h3>
+                <h3>Alertas</h3>
                 \${warningsHtml}
             \`;
         }
@@ -1119,31 +1235,63 @@ app.use(express.json());
 
 app.post('/api/students', (req, res) => {
   const { name, dupla } = req.body;
-  if(!name || !dupla) return res.status(400).json({ error: 'Name and dupla required' });
+  if(!name || !dupla) return res.status(400).json({ error: 'Nome e dupla obrigatorios' });
   
-  const id = uuidv4();
-  const newStudent = {
-    id,
-    name,
-    dupla,
-    socketId: null,
-    online: false,
-    finished: false,
-    loginTime: new Date(),
-    totalTime: 0,
-    answers: {},
-    warnings: [],
-    completionCode: null,
-    copyCount: 0,
-    pasteCount: 0
-  };
-  
-  students.set(id, newStudent);
-  answers.set(id, {});
-  sessions.set(id, { startTime: Date.now(), lastActivity: Date.now() });
-  
-  io.emit('new_student', { studentId: id, name, dupla });
-  res.status(201).json(newStudent);
+  // Verifica se o aluno está cadastrado
+  if(!REGISTERED_STUDENTS.has(name)) {
+    return res.status(403).json({ error: 'Aluno nao cadastrado' });
+  }
+
+  // Verifica se já finalizou
+  const nameUpper = name.toUpperCase();
+  for(let [id, s] of students) {
+    if(s.name === nameUpper && s.finished) {
+      return res.status(403).json({ error: 'Prova ja finalizada', alreadyFinished: true });
+    }
+  }
+
+  // Verifica se já existe um aluno com esse nome
+  let existingStudent = null;
+  for(let [id, s] of students) {
+    if(s.name === nameUpper) {
+      existingStudent = s;
+      break;
+    }
+  }
+
+  let studentId;
+  let student;
+
+  if(existingStudent) {
+    if(existingStudent.finished) {
+      return res.status(403).json({ error: 'Prova ja finalizada', alreadyFinished: true });
+    }
+    studentId = existingStudent.id;
+    student = existingStudent;
+  } else {
+    studentId = uuidv4();
+    student = {
+      id: studentId,
+      name: nameUpper,
+      dupla: dupla.toUpperCase(),
+      socketId: null,
+      online: false,
+      finished: false,
+      loginTime: new Date(),
+      totalTime: 0,
+      answers: {},
+      warnings: [],
+      completionCode: null,
+      copyCount: 0,
+      pasteCount: 0
+    };
+    students.set(studentId, student);
+    answers.set(studentId, {});
+    sessions.set(studentId, { startTime: Date.now(), lastActivity: Date.now() });
+    io.emit('new_student', { studentId, name: nameUpper, dupla: dupla.toUpperCase() });
+  }
+
+  res.status(201).json({ ...student, alreadyFinished: false });
 });
 
 app.get('/api/students', (req, res) => {
@@ -1153,13 +1301,13 @@ app.get('/api/students', (req, res) => {
 
 app.get('/api/students/:id', (req, res) => {
   const s = students.get(req.params.id);
-  if(!s) return res.status(404).json({ error: 'Not found' });
+  if(!s) return res.status(404).json({ error: 'Nao encontrado' });
   res.json(s);
 });
 
 app.delete('/api/students/:id', (req, res) => {
   const s = students.get(req.params.id);
-  if(!s) return res.status(404).json({ error: 'Not found' });
+  if(!s) return res.status(404).json({ error: 'Nao encontrado' });
   if(s.socketId) {
     const sock = io.sockets.sockets.get(s.socketId);
     if(sock) sock.disconnect();
@@ -1172,18 +1320,32 @@ app.delete('/api/students/:id', (req, res) => {
 
 // ========== SOCKET.IO ==========
 io.on('connection', (socket) => {
-  console.log('● CLIENTE CONECTADO:', socket.id);
+  console.log('Cliente conectado:', socket.id);
   let currentStudentId = null;
 
   // ===== LOGIN DO ALUNO =====
   socket.on('student_login', ({ name, dupla }) => {
-    // Verifica se já existe aluno com esse nome
+    const nameUpper = name.toUpperCase();
+    const duplaUpper = dupla.toUpperCase();
+
+    // Verifica se aluno está cadastrado
+    if(!REGISTERED_STUDENTS.has(nameUpper)) {
+      socket.emit('login_error', { error: 'Aluno nao cadastrado' });
+      return;
+    }
+
+    // Verifica se já finalizou
     let existingStudent = null;
     for(let [id, s] of students) {
-      if(s.name === name && s.dupla === dupla) {
+      if(s.name === nameUpper) {
         existingStudent = s;
         break;
       }
+    }
+
+    if(existingStudent && existingStudent.finished) {
+      socket.emit('already_finished');
+      return;
     }
 
     let studentId;
@@ -1192,19 +1354,13 @@ io.on('connection', (socket) => {
     if(existingStudent) {
       studentId = existingStudent.id;
       student = existingStudent;
-      
-      // Se já finalizou, não pode refazer
-      if(student.finished) {
-        socket.emit('login_error', { error: 'PROVA JÁ FINALIZADA' });
-        return;
-      }
     } else {
       // Cria novo aluno
       studentId = uuidv4();
       student = {
         id: studentId,
-        name,
-        dupla,
+        name: nameUpper,
+        dupla: duplaUpper,
         socketId: null,
         online: false,
         finished: false,
@@ -1219,13 +1375,13 @@ io.on('connection', (socket) => {
       students.set(studentId, student);
       answers.set(studentId, {});
       sessions.set(studentId, { startTime: Date.now(), lastActivity: Date.now() });
-      io.emit('new_student', { studentId, name, dupla });
+      io.emit('new_student', { studentId, name: nameUpper, dupla: duplaUpper });
     }
 
     // Desconectar sessão anterior
     if(student.socketId) {
       const old = io.sockets.sockets.get(student.socketId);
-      if(old) { old.emit('force_disconnect', { reason: 'Nova conexão' }); old.disconnect(); }
+      if(old) { old.emit('force_disconnect', { reason: 'Nova conexao' }); old.disconnect(); }
     }
 
     student.socketId = socket.id;
@@ -1233,7 +1389,6 @@ io.on('connection', (socket) => {
     student.loginTime = new Date();
     currentStudentId = studentId;
 
-    // Carregar respostas anteriores
     const studentAnswers = answers.get(studentId) || {};
 
     io.emit('student_status_change', { studentId, online: true, name: student.name });
@@ -1244,15 +1399,7 @@ io.on('connection', (socket) => {
       answers: studentAnswers
     });
 
-    console.log('✅ ' + student.name + ' (DUPLA: ' + student.dupla + ') LOGOU');
-  });
-
-  // ===== ALUNO PRONTO =====
-  socket.on('student_ready', ({ studentId }) => {
-    const session = sessions.get(studentId);
-    if(session) {
-      session.lastActivity = Date.now();
-    }
+    console.log('✅ ' + student.name + ' logou');
   });
 
   // ===== RESPOSTA =====
@@ -1262,7 +1409,6 @@ io.on('connection', (socket) => {
     const student = students.get(studentId);
     if(!student || student.finished) return;
 
-    // Salvar resposta
     const studentAnswers = answers.get(studentId) || {};
     studentAnswers[questionId] = {
       answer,
@@ -1274,17 +1420,16 @@ io.on('connection', (socket) => {
     answers.set(studentId, studentAnswers);
     student.answers = studentAnswers;
 
-    // Verificar se é uma resposta muito rápida
+    // Verifica resposta rápida
     if(timeSpent < 5) {
       student.warnings.push({
-        type: 'RESPOSTA MUITO RÁPIDA',
+        type: 'Resposta muito rapida',
         timestamp: new Date().toISOString(),
-        details: `Questão ${questionId} - ${timeSpent}s`
+        details: 'Questao ' + questionId + ' - ' + timeSpent + 's'
       });
-      io.emit('student_warning', { studentId, warning: 'RESPOSTA MUITO RÁPIDA' });
+      io.emit('student_warning', { studentId, warning: 'Resposta muito rapida' });
     }
 
-    // Atualizar total de tempo
     const session = sessions.get(studentId);
     if(session) {
       student.totalTime = Math.round((Date.now() - session.startTime) / 1000);
@@ -1292,44 +1437,44 @@ io.on('connection', (socket) => {
 
     students.set(studentId, student);
     io.emit('student_answer', { studentId, questionId, answer, isCorrect });
-    console.log('📝 ' + student.name + ' - Q' + questionId + ': ' + answer + ' (' + (isCorrect ? '✓' : '✗') + ')');
+    console.log('📝 ' + student.name + ' - Q' + questionId + ': ' + answer);
   });
 
-  // ===== COPIA DETECTADA =====
+  // ===== COPIA =====
   socket.on('copy_detected', ({ studentId, timestamp }) => {
     const student = students.get(studentId);
     if(student && !student.finished) {
       student.copyCount = (student.copyCount || 0) + 1;
       student.warnings.push({
-        type: 'COPIA DETECTADA',
+        type: 'Copia detectada',
         timestamp: timestamp || new Date().toISOString(),
         count: student.copyCount
       });
       students.set(studentId, student);
-      io.emit('student_warning', { studentId, warning: 'COPIA DETECTADA' });
-      console.log('📋 ' + student.name + ' - COPIA DETECTADA (#' + student.copyCount + ')');
+      io.emit('student_warning', { studentId, warning: 'Copia detectada' });
+      console.log('📋 ' + student.name + ' - Copia detectada');
     }
   });
 
-  // ===== COLA DETECTADA =====
+  // ===== COLA =====
   socket.on('paste_detected', ({ studentId, timestamp }) => {
     const student = students.get(studentId);
     if(student && !student.finished) {
       student.pasteCount = (student.pasteCount || 0) + 1;
       student.warnings.push({
-        type: 'COLA DETECTADA',
+        type: 'Cola detectada',
         timestamp: timestamp || new Date().toISOString(),
         count: student.pasteCount
       });
       students.set(studentId, student);
-      io.emit('student_warning', { studentId, warning: 'COLA DETECTADA' });
-      console.log('📄 ' + student.name + ' - COLA DETECTADA (#' + student.pasteCount + ')');
+      io.emit('student_warning', { studentId, warning: 'Cola detectada' });
+      console.log('📄 ' + student.name + ' - Cola detectada');
     }
   });
 
-  // ===== FINALIZAR PROVA =====
+  // ===== FINALIZAR =====
   socket.on('exam_finished', (data) => {
-    const { studentId, answers: studentAnswers, totalTime, completionCode, studentName, studentDupla } = data;
+    const { studentId, answers: studentAnswers, totalTime, completionCode, studentName, studentDupla, correctCount } = data;
     
     const student = students.get(studentId);
     if(!student || student.finished) return;
@@ -1340,15 +1485,12 @@ io.on('connection', (socket) => {
     student.totalTime = totalTime;
     student.answers = studentAnswers;
 
-    // Salvar respostas
     const savedAnswers = {};
     Object.keys(studentAnswers).forEach(qId => {
       savedAnswers[qId] = studentAnswers[qId];
     });
     answers.set(studentId, savedAnswers);
 
-    // Gerar estatísticas
-    const correctCount = Object.values(studentAnswers).filter(a => a.isCorrect).length;
     const warningsCount = student.warnings.length;
 
     students.set(studentId, student);
@@ -1363,12 +1505,12 @@ io.on('connection', (socket) => {
       dupla: studentDupla
     });
 
-    console.log('✅ ' + student.name + ' FINALIZOU - CÓDIGO: ' + completionCode);
+    console.log('✅ ' + student.name + ' finalizou - Codigo: ' + completionCode);
   });
 
   // ===== DESCONEXÃO =====
   socket.on('disconnect', () => {
-    console.log('● CLIENTE DESCONECTADO:', socket.id);
+    console.log('Cliente desconectado:', socket.id);
     if(currentStudentId) {
       const student = students.get(currentStudentId);
       if(student && !student.finished) {
@@ -1383,7 +1525,7 @@ io.on('connection', (socket) => {
           online: false, 
           name: student.name 
         });
-        console.log('❌ ' + student.name + ' DESCONECTADO');
+        console.log('❌ ' + student.name + ' desconectado');
       }
     }
   });
@@ -1391,19 +1533,24 @@ io.on('connection', (socket) => {
 
 // ========== INICIAR SERVIDOR ==========
 server.listen(PORT, '0.0.0.0', () => {
-  console.log('\n● SISTEMA PROF. HÉBER LEMOS ●');
-  console.log('   PORT: ' + PORT);
-  console.log('   PROFESSOR: http://localhost:' + PORT);
-  console.log('   ALUNO: http://localhost:' + PORT);
-  console.log('\n● ACESSO:');
-  console.log('   SENHA PROFESSOR: heber2024');
-  console.log('   SENHA ALUNO: (nenhuma)');
-  console.log('\n● FUNCIONALIDADES:');
-  console.log('   ✓ 10 QUESTÕES DE MATEMÁTICA');
-  console.log('   ✓ CORREÇÃO AUTOMÁTICA');
-  console.log('   ✓ DETECÇÃO DE CÓPIA/COLA');
-  console.log('   ✓ DETECÇÃO DE RESPOSTAS RÁPIDAS');
-  console.log('   ✓ MONITORAMENTO EM TEMPO REAL');
-  console.log('   ✓ CÓDIGO DE FINALIZAÇÃO');
-  console.log('   ✓ HISTÓRICO COMPLETO\n');
+  console.log('\n● SISTEMA PROFESSOR HEBER LEMOS ●');
+  console.log('   Porta: ' + PORT);
+  console.log('   Professor: http://localhost:' + PORT);
+  console.log('   Aluno: http://localhost:' + PORT);
+  console.log('\n● Acesso:');
+  console.log('   Senha Professor: heber123456');
+  console.log('   Alunos Cadastrados:');
+  console.log('   - SILVERIO SANTOS MARTINS');
+  console.log('   - LUCAS SANTOS MARTINS');
+  console.log('\n   Para adicionar mais alunos, edite a constante');
+  console.log('   REGISTERED_STUDENTS no arquivo server.js');
+  console.log('\n● Funcionalidades:');
+  console.log('   ✓ 10 questoes de matematica');
+  console.log('   ✓ Uma questao por vez');
+  console.log('   ✓ Botao Avancar');
+  console.log('   ✓ Correcao automatica');
+  console.log('   ✓ Deteccao de copia/cola');
+  console.log('   ✓ Deteccao de respostas rapidas');
+  console.log('   ✓ Codigo de finalizacao');
+  console.log('   ✓ Bloqueio de reentrada\n');
 });
