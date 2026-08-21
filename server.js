@@ -164,8 +164,8 @@ app.get('/', (req, res) => {
   const ua = req.headers['user-agent'].toLowerCase();
   const isMobile = ua.includes('mobile') || ua.includes('android') || ua.includes('iphone');
 
-  // ========== PÁGINA DO CELULAR (ALUNO) ==========
   if (isMobile) {
+    // ========== PÁGINA DO CELULAR (ALUNO) ==========
     res.send(`<!DOCTYPE html>
 <html>
 <head>
@@ -679,22 +679,24 @@ app.get('/', (req, res) => {
                 });
             }
 
+            // SALVAR RESPOSTA COM A COMPARAÇÃO CORRETA
+            const q = questionsData.find(q => q.id === questionId);
+            const isCorrect = (answer === q.answer);
+            
             answers[questionId] = {
                 answer: answer,
-                timeSpent: Math.round(timeSpent)
+                timeSpent: Math.round(timeSpent),
+                isCorrect: isCorrect  // <-- GRAVA O RESULTADO CORRETO
             };
 
             nextBtn.disabled = false;
-
-            const q = questionsData.find(q => q.id === questionId);
-            const isCorrect = q.answer === answer;
 
             socket.emit('answer_submitted', {
                 studentId,
                 questionId,
                 answer,
                 timeSpent: Math.round(timeSpent),
-                isCorrect,
+                isCorrect: isCorrect,  // <-- ENVIA O RESULTADO CORRETO
                 questionNumber: index + 1
             });
         }
@@ -734,8 +736,7 @@ app.get('/', (req, res) => {
 
                 let correctCount = 0;
                 Object.keys(answers).forEach(qId => {
-                    const q = questionsData.find(q => q.id === parseInt(qId));
-                    if(q && answers[qId].answer === q.answer) {
+                    if(answers[qId].isCorrect) {
                         correctCount++;
                     }
                 });
@@ -770,7 +771,7 @@ app.get('/', (req, res) => {
             for(let i = 0; i < totalQuestions; i++) {
                 const q = questionsData[i];
                 const ans = savedAnswers[q.id];
-                const isCorrect = ans && ans.answer === q.answer;
+                const isCorrect = ans && ans.isCorrect;
                 const status = isCorrect ? '✓' : '✗';
                 const statusClass = isCorrect ? 'correct' : 'wrong';
                 
@@ -1210,7 +1211,6 @@ app.get('/', (req, res) => {
             alunoLoginBtn.textContent = 'Abrindo Prova...';
             alunoLoginError.textContent = '';
 
-            // Abrir a prova em uma nova aba/janela
             window.open('/', '_blank');
             
             setTimeout(() => {
@@ -1277,8 +1277,13 @@ app.get('/', (req, res) => {
             }
 
             const totalAnswers = student.answers ? Object.keys(student.answers).length : 0;
-            const correctAnswers = student.answers ? 
-                Object.values(student.answers).filter(a => a && a.isCorrect).length : 0;
+            // CORRIGIDO: Conta os acertos baseado no isCorrect salvo
+            let correctAnswers = 0;
+            if(student.answers) {
+                Object.values(student.answers).forEach(a => {
+                    if(a && a.isCorrect === true) correctAnswers++;
+                });
+            }
             const totalTime = student.totalTime || 0;
 
             let answersHtml = '';
@@ -1286,15 +1291,16 @@ app.get('/', (req, res) => {
                 const sorted = Object.keys(student.answers).sort((a,b) => parseInt(a) - parseInt(b));
                 answersHtml = sorted.map(qId => {
                     const ans = student.answers[qId];
-                    const isCorrect = ans && ans.isCorrect;
+                    const isCorrect = ans && ans.isCorrect === true;
                     const timeSpent = ans ? ans.timeSpent : 0;
+                    const answerText = ans ? ans.answer : '—';
                     
                     return \`
                         <div class="detail-item">
                             <span class="label">Questão \${qId}</span>
                             <span>
                                 <span class="\${isCorrect ? 'correct' : 'wrong'}">\${isCorrect ? '✓' : '✗'}</span>
-                                \${ans ? ans.answer : '—'}
+                                \${answerText}
                                 <span class="time-badge">\${timeSpent}s</span>
                                 \${timeSpent < 5 && ans ? '<span class="badge warning" style="font-size:7px;">Rápido</span>' : ''}
                             </span>
@@ -1594,15 +1600,25 @@ io.on('connection', (socket) => {
     if(!student || student.finished) return;
 
     const studentAnswers = answers.get(studentId) || {};
+    
+    // GARANTE QUE isCorrect É SALVO CORRETAMENTE
     studentAnswers[questionId] = {
-      answer,
-      timeSpent,
-      isCorrect,
+      answer: answer,
+      timeSpent: timeSpent,
+      isCorrect: isCorrect === true, // FORÇA BOOLEAN
       timestamp: new Date().toISOString(),
-      questionNumber
+      questionNumber: questionNumber
     };
+    
     answers.set(studentId, studentAnswers);
     student.answers = studentAnswers;
+
+    // Atualiza o total de acertos
+    let correctCount = 0;
+    Object.values(studentAnswers).forEach(a => {
+      if(a && a.isCorrect === true) correctCount++;
+    });
+    student.correctCount = correctCount;
 
     if(timeSpent < 5) {
       student.warnings.push({
@@ -1619,7 +1635,7 @@ io.on('connection', (socket) => {
     }
 
     students.set(studentId, student);
-    io.emit('student_answer', { studentId, questionId, answer, isCorrect });
+    io.emit('student_answer', { studentId, questionId, answer, isCorrect: isCorrect === true });
     console.log('📝 ' + student.name + ' - Q' + questionId + ': ' + answer + ' (' + (isCorrect ? '✓' : '✗') + ')');
     saveData();
   });
@@ -1737,6 +1753,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('   ✓ Alternativa fica marcada ao clicar');
   console.log('   ✓ Dados permanentes (salvos em data.json)');
   console.log('   ✓ Professor vê: resposta, certo/errado, tempo, alertas');
+  console.log('   ✓ CORREÇÃO: Acertos são contados corretamente');
   console.log('   ✓ Uma chance por dupla (bloqueio após finalizar)');
   console.log('   ✓ Aluno pode fazer prova pelo PC ou Celular\n');
 });
