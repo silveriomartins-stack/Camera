@@ -1,5 +1,5 @@
 {
-  "name": "jogo-camera",
+  "name": "sistema-provas",
   "version": "1.0.0",
   "scripts": {
     "start": "node server.js"
@@ -7,6 +7,6 @@
   "dependencies": {
     "express": "4.18.2",
     "socket.io": "4.5.4",
-    "cookie-parser": "^1.4.6"
+    "uuid": "^9.0.0"
   }
 }
